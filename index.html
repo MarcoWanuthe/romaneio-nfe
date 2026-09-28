@@ -85,6 +85,13 @@ table.t tfoot td{font-weight:700;border-top:2px solid var(--line)}
 .toast.erro{background:var(--err)} .toast.ok{background:var(--ok)}
 #camBox{width:100%;max-width:520px;margin:0 auto}
 #print-area{display:none}
+.modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.modbtn{background:#fff;border:2px solid var(--line);border-radius:10px;padding:16px 14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;font:inherit;color:var(--txt)}
+.modbtn:hover{border-color:var(--pri);background:#f3f7fd}
+.modbtn b{font-size:16px}
+.modbtn span{font-size:12px;color:var(--muted)}
+.modatual{font-size:20px;font-weight:700;color:var(--pri)}
+.rast{width:150px;font-family:ui-monospace,Consolas,monospace;text-transform:uppercase}
 
 /* ===== Impressão ===== */
 @media print{
@@ -142,7 +149,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.0.0 (2026-09-23)";
+const APP_VERSAO = "1.1.0 (2026-09-28)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -175,12 +182,14 @@ const APP_VERSAO = "1.0.0 (2026-09-23)";
     <button data-tab="base">Base de XMLs</button>
     <button data-tab="hist">Histórico</button>
     <button data-tab="rel">Relatórios</button>
+    <button data-tab="cfg" id="tabCfgBtn" class="hidden">Configurações</button>
   </nav>
 
   <main>
     <!-- EXPEDIÇÃO -->
     <section id="tab-exp">
-      <div class="card">
+      <div class="card" id="modCard"></div>
+      <div class="card hidden" id="scanCard">
         <h2>Bipe a NF (código de barras do DANFE ou QR code)</h2>
         <div class="scan-box">
           <input id="scanInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Aguardando leitura… (ou digite a chave de 44 dígitos e Enter)">
@@ -199,7 +208,7 @@ const APP_VERSAO = "1.0.0 (2026-09-23)";
             <button class="btn ok" id="btnFinalizar">Finalizar e gerar romaneios</button>
           </div>
         </div>
-        <p class="muted small" style="margin:6px 0 0">Informe os <b>volumes conferidos</b> fisicamente em cada NF. Diferenças em relação ao XML ficam destacadas e registradas. Será gerado <b>um romaneio por transportadora</b>.</p>
+        <p class="muted small" style="margin:6px 0 0">Informe os <b>volumes conferidos</b> fisicamente em cada NF. Diferenças em relação ao XML ficam destacadas e registradas. <span id="regraRom"></span></p>
         <div id="draftArea"></div>
       </div>
     </section>
@@ -235,6 +244,7 @@ const APP_VERSAO = "1.0.0 (2026-09-23)";
           <label class="f">Até<input type="date" id="hAte"></label>
           <label class="f">Busca<input type="text" id="hBusca" placeholder="NF, cliente, transportadora, nº romaneio"></label>
           <label class="f">Status<select id="hStatus"><option value="">Todos</option><option value="ativo">Ativos</option><option value="cancelado">Cancelados</option></select></label>
+          <label class="f">Modalidade<select id="hMod"><option value="">Todas</option></select></label>
           <button class="btn" id="btnHist">Pesquisar</button>
         </div>
         <div class="row small" style="margin-top:8px" data-periodo-for="h">
@@ -254,6 +264,7 @@ const APP_VERSAO = "1.0.0 (2026-09-23)";
         <div class="row" style="align-items:flex-end">
           <label class="f">De<input type="date" id="rDe"></label>
           <label class="f">Até<input type="date" id="rAte"></label>
+          <label class="f">Modalidade<select id="rMod"><option value="">Todas</option></select></label>
           <button class="btn" id="btnRel">Gerar relatório</button>
           <button class="btn sec" id="btnCsv">Exportar CSV (detalhado)</button>
           <button class="btn sec" id="btnRelPrint">Imprimir / PDF</button>
@@ -267,6 +278,20 @@ const APP_VERSAO = "1.0.0 (2026-09-23)";
         </div>
       </div>
       <div id="relArea"></div>
+    </section>
+    <!-- CONFIGURAÇÕES (GESTOR) -->
+    <section id="tab-cfg" class="hidden">
+      <div class="card">
+        <h2>Modalidades de envio</h2>
+        <p class="muted small" style="margin-top:-6px">Somente o gestor vê esta aba. Modalidades retiradas deixam de aparecer para novas remessas, mas continuam nos romaneios antigos, no histórico e nos relatórios.</p>
+        <div id="cfgList" class="tbl-wrap"></div>
+        <h2 style="margin-top:20px">Adicionar modalidade</h2>
+        <div class="row" style="align-items:flex-end">
+          <label class="f">Nome<input type="text" id="cfgNome" placeholder="Ex.: Uber Flash"></label>
+          <label class="f">Comportamento<select id="cfgTipo"></select></label>
+          <button class="btn" id="btnCfgAdd">Adicionar</button>
+        </div>
+      </div>
     </section>
     <p class="muted small" style="text-align:center">Versão <span id="ver"></span></p>
   </main>
@@ -364,14 +389,16 @@ function transpNome(t){return (t&&t.nome)||SEM_TRANSP;}
 
 /* ================= CAMADA DE DADOS ================= */
 function montarRomaneio(grupo,resp,numero){
-  const itens=grupo.itens.map(it=>{const n=it.nota;return {chave:n.chave,numero:n.numero,serie:n.serie,dataEmissao:n.dataEmissao,cliente:n.cliente,endereco:n.endereco,volXml:n.volumes,volConf:nInt(it.volConf),especie:n.especie,pesoBruto:n.pesoBruto,valor:n.valor,autorizada:n.autorizada};});
+  const itens=grupo.itens.map(it=>{const n=it.nota;return {chave:n.chave,numero:n.numero,serie:n.serie,dataEmissao:n.dataEmissao,cliente:n.cliente,endereco:n.endereco,volXml:n.volumes,volConf:nInt(it.volConf),especie:n.especie,pesoBruto:n.pesoBruto,valor:n.valor,autorizada:n.autorizada,rastreio:it.rastreio||'',alertaMod:it.alertaMod||''};});
   const volXml=itens.reduce((a,b)=>a+b.volXml,0),volConf=itens.reduce((a,b)=>a+b.volConf,0);
-  return {numero,criadoMs:Date.now(),status:'ativo',transportadora:grupo.transportadora,emitente:grupo.itens[0].nota.emitente,responsavel:resp,itens,
+  return {numero,criadoMs:Date.now(),status:'ativo',transportadora:grupo.transportadora,modalidade:grupo.modalidade||null,evento:grupo.evento||'',emitente:grupo.itens[0].nota.emitente,responsavel:resp,itens,
     totais:{nfs:itens.length,volXml,volConf,divergencias:itens.filter(i=>i.volXml!==i.volConf).length,peso:Math.round(itens.reduce((a,b)=>a+(b.pesoBruto||0),0)*1000)/1000,valor:Math.round(itens.reduce((a,b)=>a+(b.valor||0),0)*100)/100},
     busca:[...itens.map(i=>i.numero),...itens.map(i=>(i.cliente.nome||'').toUpperCase())]};
 }
 
 const LocalDB={
+  async getModalidades(){return LS.get('rnfe_mods',null);},
+  async salvarModalidades(l){if(!LS.set('rnfe_mods',l))throw new Error('falha ao salvar neste navegador');},
   async importarNotas(lista){const m=LS.get('rnfe_notas',{});let novas=0,atual=0;
     for(const n of lista){const ex=m[n.chave];if(ex){atual++;m[n.chave]={...n,importadoMs:ex.importadoMs,romaneioId:ex.romaneioId||null,romaneioNumero:ex.romaneioNumero||null};}else{novas++;m[n.chave]={...n,romaneioId:null,romaneioNumero:null};}}
     if(!LS.set('rnfe_notas',m))throw new Error('armazenamento cheio');return {novas,atual};},
@@ -394,6 +421,8 @@ const LocalDB={
 
 let fdb=null,fauth=null;
 const FireDB={
+  async getModalidades(){const s=await fdb.collection('config').doc('modalidades').get();return s.exists?(s.data().lista||null):null;},
+  async salvarModalidades(l,u){await fdb.collection('config').doc('modalidades').set({lista:l,atualizadoPor:(u&&u.nome)||'',atualizadoMs:Date.now()});},
   async importarNotas(lista){const col=fdb.collection('notas');let novas=0,atual=0;
     for(let i=0;i<lista.length;i+=400){const chunk=lista.slice(i,i+400);
       const snaps=await Promise.all(chunk.map(n=>col.doc(n.chave).get()));
@@ -438,7 +467,8 @@ function mostrarLogin(){$('#app').classList.add('hidden');$('#login').classList.
   else $('#lEmail').focus();}
 function msgLogin(t,c='err'){const m=$('#loginMsg');m.className='feedback '+c;m.textContent=t;}
 async function entrar(u){USER=u;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#userName').textContent=u.nome+(u.email?' · '+u.email:'');
-  $('#demoBanner').classList.toggle('hidden',MODO_FIREBASE);carregarDraft();renderDraft();focarScan();}
+  $('#demoBanner').classList.toggle('hidden',MODO_FIREBASE);$('#tabCfgBtn').classList.toggle('hidden',!isGestor());
+  await carregarMods();carregarDraft();renderDraft();focarScan();}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();
   if(!MODO_FIREBASE){const nome=$('#lNome').value.trim();if(!nome)return msgLogin('Informe seu nome.');const u={uid:'local-'+nome.toLowerCase().replace(/\W+/g,'-'),nome,email:''};LS.set('rnfe_local_user',u);return entrar(u);}
   try{msgLogin('Entrando…','warn');await fauth.signInWithEmailAndPassword($('#lEmail').value.trim(),$('#lSenha').value);}
@@ -451,24 +481,88 @@ if(MODO_FIREBASE){fauth.onAuthStateChanged(async u=>{if(!u){USER=null;return mos
     if(!nome){nome=await dialogo({titulo:'Qual é o seu nome?',html:'<p class="muted">Ele aparecerá como responsável pela remessa nos romaneios.</p><input type="text" id="dlgNome" style="width:100%">',botoes:[{txt:'Salvar',val:bg=>bg.querySelector('#dlgNome').value.trim()||undefined}]});
       try{await u.updateProfile({displayName:nome});}catch(e){}}
     entrar({uid:u.uid,nome,email:u.email});});}
-else{const u=LS.get('rnfe_local_user',null);u?entrar(u):mostrarLogin();}
+else setTimeout(()=>{const u=LS.get('rnfe_local_user',null);u?entrar(u):mostrarLogin();},0);
 
 /* ================= ABAS ================= */
 $$('nav.tabs button').forEach(b=>b.onclick=()=>{$$('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b));
-  ['exp','base','hist','rel'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==b.dataset.tab));
-  if(b.dataset.tab==='exp')focarScan();if(b.dataset.tab==='base')listarBase();if(b.dataset.tab==='hist')pesquisarHist();});
+  ['exp','base','hist','rel','cfg'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==b.dataset.tab));
+  if(b.dataset.tab==='exp')focarScan();if(b.dataset.tab==='base')listarBase();if(b.dataset.tab==='hist')pesquisarHist();if(b.dataset.tab==='cfg')renderCfg();});
+
+/* ================= MODALIDADES DE ENVIO ================= */
+const GESTORES=['marcowanuthe.mw@gmail.com'];
+const TIPOS={padrao:'Padrão (sem regra extra)',correios:'Exige código de postagem (como Correios)',transportadora:'Agrupa pela transportadora do XML',retirada:'Retirada (assina quem retirou)',evento:'Evento (pede o nome do evento)'};
+const TIPO_CURTO={padrao:'',correios:'NF + etiqueta de postagem',transportadora:'Um romaneio por transportadora',retirada:'Cliente retira',evento:'Informe o nome do evento'};
+const MOD_PADRAO=[
+  {id:'correios',nome:'Correios',tipo:'correios',ativo:true},
+  {id:'transportadora',nome:'Transportadora',tipo:'transportadora',ativo:true},
+  {id:'retirada',nome:'Retirada em loja',tipo:'retirada',ativo:true},
+  {id:'evento',nome:'Entregue no Evento',tipo:'evento',ativo:true},
+  {id:'motoboy',nome:'Motoboy',tipo:'padrao',ativo:true}];
+let MODS=MOD_PADRAO.map(m=>({...m}));
+const MOD_LEGADO={id:'transportadora',nome:'Transportadora',tipo:'transportadora'};
+function isGestor(){return !MODO_FIREBASE||(!!USER&&GESTORES.includes(String(USER.email||'').toLowerCase()));}
+function modDe(r){return r&&r.modalidade?r.modalidade:MOD_LEGADO;}
+function modNomeCompleto(m,evento){return m.nome+(m.tipo==='evento'&&evento?' · '+evento:'');}
+async function carregarMods(){try{const l=await DB.getModalidades();if(Array.isArray(l)&&l.length)MODS=l;}catch(e){console.warn('modalidades',e);}preencherFiltrosMod();}
+function preencherFiltrosMod(){for(const id of ['hMod','rMod']){const s=$('#'+id);if(!s)continue;const v=s.value;
+  s.innerHTML='<option value="">Todas</option>'+MODS.map(m=>`<option value="${esc(m.id)}">${esc(m.nome)}${m.ativo===false?' (desativada)':''}</option>`).join('');s.value=v;}}
+function ehCorreios(t){return /CORREIO|EMPRESA BRASILEIRA DE CORREIOS/i.test((t&&t.nome)||'')||onlyDig(t&&t.doc).startsWith('34028316');}
+function alertaModalidade(n,m){const t=n.transportadora||{};const temTransp=!!(t.nome||t.doc)&&t.modFrete!=='9';
+  if(m.tipo==='transportadora')return temTransp?(ehCorreios(t)?'XML indica Correios':''):'XML sem transportadora';
+  if(m.tipo==='correios')return temTransp&&!ehCorreios(t)?`XML indica transportadora ${t.nome||fmtDoc(t.doc)}`:'';
+  return temTransp?`XML indica transportadora ${t.nome||fmtDoc(t.doc)}`:'';}
+const RE_POSTAGEM=/^[A-Z]{2}\d{9}[A-Z]{2}$/;
 
 /* ================= EXPEDIÇÃO ================= */
-let DRAFT=[]; // [{nota, volConf, bipadoMs}]
+let DRAFT=[]; // [{nota, volConf, bipadoMs, rastreio, alertaMod}]
+let SESS={mod:null,evento:''};
 function draftKey(){return 'rnfe_draft_'+(USER?USER.uid:'x');}
-function carregarDraft(){DRAFT=LS.get(draftKey(),[]);}
-function salvarDraft(){LS.set(draftKey(),DRAFT);}
-function focarScan(){if($('#tab-exp').classList.contains('hidden'))return;if(document.activeElement&&document.activeElement.classList.contains('conf'))return;if(document.querySelector('.modal-bg'))return;$('#scanInput').focus();}
-function feedback(t,c){const m=$('#scanMsg');m.className='feedback '+c;m.innerHTML=t;}
+function carregarDraft(){const d=LS.get(draftKey(),[]);
+  if(Array.isArray(d)){DRAFT=d;SESS={mod:d.length?{...MOD_LEGADO}:null,evento:''};}
+  else{DRAFT=d.itens||[];SESS={mod:d.mod||null,evento:d.evento||''};}
+  if(DRAFT.length&&!SESS.mod)SESS.mod={...MOD_LEGADO};}
+function salvarDraft(){LS.set(draftKey(),{mod:SESS.mod,evento:SESS.evento,itens:DRAFT});}
+function resetSessao(){SESS={mod:null,evento:''};salvarDraft();}
+function pendenteRastreio(){return SESS.mod&&SESS.mod.tipo==='correios'?DRAFT.find(d=>!d.rastreio)||null:null;}
+function focarScan(){if($('#tab-exp').classList.contains('hidden'))return;if($('#scanCard').classList.contains('hidden'))return;const a=document.activeElement;if(a&&(a.classList.contains('conf')||a.classList.contains('rast')))return;if(document.querySelector('.modal-bg'))return;$('#scanInput').focus();}
+function feedback(t,c){const m=$('#scanMsg');m.className='feedback '+c;m.innerHTML=t;m.style.display='';}
+
+function renderMod(){const c=$('#modCard');
+  if(!SESS.mod){const ativos=MODS.filter(m=>m.ativo!==false);
+    c.innerHTML=`<h2>Qual a modalidade de envio desta remessa?</h2><p class="muted small" style="margin:-6px 0 12px">Escolha antes de começar a bipar. Todas as NFs desta remessa sairão nesta modalidade.</p>
+      <div class="modgrid">${ativos.map(m=>`<button class="modbtn" data-mod="${esc(m.id)}"><b>${esc(m.nome)}</b>${TIPO_CURTO[m.tipo]?`<span>${esc(TIPO_CURTO[m.tipo])}</span>`:''}</button>`).join('')||'<p class="muted">Nenhuma modalidade ativa. O gestor pode cadastrar na aba Configurações.</p>'}</div>`;
+    $('#scanCard').classList.add('hidden');return;}
+  $('#scanCard').classList.remove('hidden');
+  const m=SESS.mod;
+  c.innerHTML=`<div class="row" style="justify-content:space-between"><div><span class="muted small">Modalidade de envio desta remessa</span>
+    <div class="modatual">${esc(m.nome)}${m.tipo==='evento'?` <span class="pill">${esc(SESS.evento)}</span>`:''}</div>
+    ${m.tipo==='correios'?'<div class="small muted">Para cada NF: bipe a NF e, em seguida, a etiqueta de postagem (código tipo AA123456789BR).</div>':''}</div>
+    <button class="btn sec sm" id="btnTrocarMod" ${DRAFT.length?'disabled title="Remova as NFs bipadas para trocar a modalidade"':''}>Trocar modalidade</button></div>`;
+}
+$('#modCard').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.id==='btnTrocarMod'){if(DRAFT.length)return;resetSessao();renderDraft();return;}
+  const m=MODS.find(x=>x.id===b.dataset.mod);if(!m)return;
+  let evento='';
+  if(m.tipo==='evento'){const rec=LS.get('rnfe_eventos',[]);
+    evento=await dialogo({titulo:'Nome do evento',html:`<p class="muted">Ele sai no romaneio e pode ser usado como filtro no histórico.</p><input type="text" id="dlgEv" list="dlgEvList" style="width:100%" placeholder="Ex.: FullFace 2026"><datalist id="dlgEvList">${rec.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`,
+      botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar',val:bg=>bg.querySelector('#dlgEv').value.trim()||(toast('Informe o nome do evento.','erro'),undefined)}]});
+    if(!evento)return;LS.set('rnfe_eventos',[evento,...rec.filter(x=>x!==evento)].slice(0,15));}
+  SESS={mod:{id:m.id,nome:m.nome,tipo:m.tipo},evento};salvarDraft();renderDraft();feedback(`Modalidade definida: <b>${esc(modNomeCompleto(m,evento))}</b>. Pode começar a bipar.`,'ok');focarScan();});
 
 let processando=false;
 async function processarLeitura(raw){
-  if(processando)return;const ch=extrairChave(raw);$('#scanInput').value='';
+  if(processando)return;
+  if(!SESS.mod){$('#scanInput').value='';bip(false);return feedback('Escolha primeiro a modalidade de envio.','err');}
+  const cod=String(raw||'').trim().toUpperCase().replace(/\s/g,'');
+  if(SESS.mod.tipo==='correios'){const pend=pendenteRastreio();
+    if(RE_POSTAGEM.test(cod)){$('#scanInput').value='';
+      if(!pend){bip(false);return feedback('Nenhuma NF aguardando código de postagem. Bipe primeiro a NF.','warn');}
+      const dup=DRAFT.find(d=>d.rastreio===cod);if(dup){bip(false);return feedback(`O código ${esc(cod)} já foi usado na NF ${esc(dup.nota.numero)}.`,'err');}
+      pend.rastreio=cod;salvarDraft();renderDraft();bip(true);
+      return feedback(`✔ Código de postagem ${esc(cod)} vinculado à NF ${esc(pend.nota.numero)}. Pode bipar a próxima NF.`,'ok');}
+    if(pend){$('#scanInput').value='';bip(false);return feedback(`Bipe agora a <b>etiqueta de postagem</b> da NF ${esc(pend.nota.numero)} (código tipo AA123456789BR).`,'warn');}
+  }
+  const ch=extrairChave(raw);$('#scanInput').value='';
   if(!ch){bip(false);return feedback('Leitura não reconhecida. Bipe o código de barras do DANFE ou o QR code da nota.','err');}
   if(!chaveValida(ch)){bip(false);return feedback('Chave de acesso inválida (dígito verificador não confere). Tente bipar novamente.','err');}
   if(DRAFT.some(d=>d.nota.chave===ch)){const k=decodificarChave(ch);bip(false);return feedback(`NF ${esc(k.numero)} já foi bipada nesta remessa.`,'warn');}
@@ -477,9 +571,11 @@ async function processarLeitura(raw){
     const n=await DB.getNota(ch);
     if(!n){const k=decodificarChave(ch);bip(false);return feedback(`NF ${esc(k.numero)} (série ${esc(k.serie)}) não está na base. Importe o XML na aba <b>Base de XMLs</b> e bipe novamente.`,'err');}
     if(n.romaneioId){bip(false);return feedback(`BLOQUEADO: NF ${esc(n.numero)} já está no romaneio Nº ${pad(n.romaneioNumero)}. Cancele aquele romaneio no Histórico se precisar reenviar.`,'err');}
-    DRAFT.unshift({nota:n,volConf:'',bipadoMs:Date.now()});salvarDraft();renderDraft();bip(true);
-    let aviso='';if(!n.autorizada)aviso+=' · ATENÇÃO: XML sem protocolo de autorização';if(!n.temVolume)aviso+=' · XML sem quantidade de volumes';
-    feedback(`✔ NF ${esc(n.numero)} · ${esc(n.cliente.nome)} · ${esc(transpNome(n.transportadora))} · ${n.volumes} vol.${esc(aviso)}`,aviso?'warn':'ok');
+    const alertaMod=alertaModalidade(n,SESS.mod);
+    DRAFT.unshift({nota:n,volConf:'',bipadoMs:Date.now(),rastreio:'',alertaMod});salvarDraft();renderDraft();bip(true);
+    let aviso='';if(alertaMod)aviso+=` · ATENÇÃO: ${alertaMod} (remessa: ${SESS.mod.nome})`;if(!n.autorizada)aviso+=' · ATENÇÃO: XML sem protocolo de autorização';if(!n.temVolume)aviso+=' · XML sem quantidade de volumes';
+    const prox=SESS.mod.tipo==='correios'?' <b>Agora bipe a etiqueta de postagem.</b>':'';
+    feedback(`✔ NF ${esc(n.numero)} · ${esc(n.cliente.nome)} · ${n.volumes} vol.${esc(aviso)}${prox}`,aviso?'warn':'ok');
   }catch(err){bip(false);feedback('Erro ao consultar a base: '+esc(err.message),'err');}
   finally{processando=false;focarScan();}
 }
@@ -487,45 +583,62 @@ let scanTimer=null;
 $('#scanInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(scanTimer);processarLeitura(e.target.value);}});
 $('#scanInput').addEventListener('input',e=>{clearTimeout(scanTimer);const v=e.target.value;if(/^\d{44}$/.test(v.trim()))scanTimer=setTimeout(()=>processarLeitura(v),150);});
 
-function grupos(){const g=new Map();for(const it of DRAFT){const k=transpKey(it.nota.transportadora);if(!g.has(k))g.set(k,{key:k,transportadora:{nome:transpNome(it.nota.transportadora),doc:it.nota.transportadora?.doc||'',modFreteDesc:it.nota.transportadora?.modFreteDesc||''},itens:[]});g.get(k).itens.push(it);}return [...g.values()];}
+function grupos(){if(!SESS.mod||!DRAFT.length)return [];const m=SESS.mod;const base={modalidade:{id:m.id,nome:m.nome,tipo:m.tipo},evento:SESS.evento||''};
+  if(m.tipo!=='transportadora')return [{...base,key:'MOD',transportadora:{nome:modNomeCompleto(m,SESS.evento),doc:'',modFreteDesc:''},itens:DRAFT.slice()}];
+  const g=new Map();for(const it of DRAFT){const k=transpKey(it.nota.transportadora);if(!g.has(k))g.set(k,{...base,key:k,transportadora:{nome:transpNome(it.nota.transportadora),doc:it.nota.transportadora?.doc||'',modFreteDesc:it.nota.transportadora?.modFreteDesc||''},itens:[]});g.get(k).itens.push(it);}return [...g.values()];}
 function renderDraft(){
+  renderMod();
+  $('#regraRom').innerHTML=SESS.mod&&SESS.mod.tipo==='transportadora'?'Será gerado <b>um romaneio por transportadora</b>.':'Será gerado <b>um romaneio</b> com todas as NFs desta remessa.';
+  const isC=SESS.mod&&SESS.mod.tipo==='correios';const pend=pendenteRastreio();
+  $('#scanInput').placeholder=pend?`Aguardando etiqueta de postagem da NF ${pend.nota.numero}…`:'Aguardando leitura… (ou digite a chave de 44 dígitos e Enter)';
   const gs=grupos();const volX=DRAFT.reduce((a,b)=>a+b.nota.volumes,0);const conf=DRAFT.filter(d=>d.volConf!=='');const volC=conf.reduce((a,b)=>a+nInt(b.volConf),0);
-  const div=conf.filter(d=>nInt(d.volConf)!==d.nota.volumes).length;
-  $('#expStats').innerHTML=`<div class="stat"><b>${DRAFT.length}</b><span>NFs bipadas</span></div><div class="stat"><b>${gs.length}</b><span>Transportadoras (romaneios)</span></div><div class="stat"><b>${volX}</b><span>Volumes no XML</span></div><div class="stat"><b>${conf.length}/${DRAFT.length}</b><span>NFs conferidas · ${volC} vol.</span></div><div class="stat"><b style="color:${div?'var(--err)':'inherit'}">${div}</b><span>Divergências</span></div>`;
+  const div=conf.filter(d=>nInt(d.volConf)!==d.nota.volumes).length;const semR=isC?DRAFT.filter(d=>!d.rastreio).length:0;
+  $('#expStats').innerHTML=SESS.mod?`<div class="stat"><b>${DRAFT.length}</b><span>NFs bipadas</span></div><div class="stat"><b>${gs.length}</b><span>Romaneio(s) a gerar</span></div><div class="stat"><b>${volX}</b><span>Volumes no XML</span></div><div class="stat"><b>${conf.length}/${DRAFT.length}</b><span>NFs conferidas · ${volC} vol.</span></div><div class="stat"><b style="color:${div?'var(--err)':'inherit'}">${div}</b><span>Divergências</span></div>${isC?`<div class="stat"><b style="color:${semR?'var(--err)':'inherit'}">${DRAFT.length-semR}/${DRAFT.length}</b><span>Com código de postagem</span></div>`:''}`:'';
+  if(!SESS.mod){$('#draftArea').innerHTML='<div class="empty">Escolha a modalidade de envio acima para começar.</div>';return;}
   if(!DRAFT.length){$('#draftArea').innerHTML='<div class="empty">Nenhuma NF bipada ainda.</div>';return;}
   $('#draftArea').innerHTML=gs.map(g=>{
     const vx=g.itens.reduce((a,b)=>a+b.nota.volumes,0);
     return `<div class="grp-head"><h3>${esc(g.transportadora.nome)}</h3>${g.transportadora.doc?`<span class="pill">${esc(fmtDoc(g.transportadora.doc))}</span>`:''}<span class="pill">${g.itens.length} NF · ${vx} vol.</span></div>
-    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th><th class="num">Vol. XML</th><th class="num">Vol. conferido</th><th></th></tr></thead><tbody>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th>${isC?'<th>Código de postagem</th>':''}<th class="num">Vol. XML</th><th class="num">Vol. conferido</th><th></th></tr></thead><tbody>
     ${g.itens.map(it=>{const n=it.nota;const d=it.volConf!==''&&nInt(it.volConf)!==n.volumes;
-      return `<tr class="${d?'div':''}"><td><b>${esc(n.numero)}</b><div class="small muted">Série ${esc(n.serie)}</div>${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td>
+      return `<tr class="${d?'div':''}"><td><b>${esc(n.numero)}</b><div class="small muted">Série ${esc(n.serie)}</div>${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}${it.alertaMod?`<div><span class="pill warn" title="${esc(it.alertaMod)}">${esc(it.alertaMod)}</span></div>`:''}</td>
       <td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}<div class="small muted">${esc(fmtDoc(n.cliente.doc))}</div></td>
       <td>${esc(enderecoStr(n.endereco))}<div class="small muted">${esc(cidadeUf(n.endereco))} · CEP ${esc(fmtCep(n.endereco.cep))}</div></td>
+      ${isC?`<td><input class="rast" type="text" data-ch="${n.chave}" value="${esc(it.rastreio||'')}" placeholder="bipe a etiqueta" maxlength="13">${it.rastreio?'':'<div><span class="pill err">aguardando etiqueta</span></div>'}</td>`:''}
       <td class="num">${n.volumes}${n.especie?`<div class="small muted">${esc(n.especie)}</div>`:''}</td>
       <td class="num"><input class="conf" type="number" min="0" step="1" data-ch="${n.chave}" value="${esc(it.volConf)}" placeholder="—"> <button class="btn sec sm" data-igual="${n.chave}" title="Conferido igual ao XML">= XML</button>${d?`<div class="small" style="color:var(--err);font-weight:700">Dif.: ${nInt(it.volConf)-n.volumes>0?'+':''}${nInt(it.volConf)-n.volumes}</div>`:''}</td>
       <td><button class="btn sec sm" data-rm="${n.chave}" title="Remover da remessa">✕</button></td></tr>`;}).join('')}
     </tbody></table></div>`;}).join('');
 }
-$('#draftArea').addEventListener('change',e=>{if(!e.target.classList.contains('conf'))return;const it=DRAFT.find(d=>d.nota.chave===e.target.dataset.ch);if(!it)return;
-  const v=e.target.value.trim();it.volConf=v===''?'':String(Math.max(0,nInt(v)));salvarDraft();renderDraft();focarScan();});
-$('#draftArea').addEventListener('keydown',e=>{if(e.target.classList.contains('conf')&&e.key==='Enter'){e.preventDefault();e.target.blur();$('#scanInput').focus();}});
+$('#draftArea').addEventListener('change',e=>{const el=e.target;const it=DRAFT.find(d=>d.nota.chave===el.dataset.ch);if(!it)return;
+  if(el.classList.contains('conf')){const v=el.value.trim();it.volConf=v===''?'':String(Math.max(0,nInt(v)));salvarDraft();renderDraft();focarScan();}
+  if(el.classList.contains('rast')){const v=el.value.trim().toUpperCase().replace(/\s/g,'');
+    if(v&&!RE_POSTAGEM.test(v)){toast('Código de postagem inválido. Formato esperado: AA123456789BR.','erro');el.value=it.rastreio||'';return;}
+    const dup=v&&DRAFT.find(d=>d!==it&&d.rastreio===v);if(dup){toast(`Código já usado na NF ${dup.nota.numero}.`,'erro');el.value=it.rastreio||'';return;}
+    it.rastreio=v;salvarDraft();renderDraft();$('#scanInput').focus();}});
+$('#draftArea').addEventListener('keydown',e=>{if((e.target.classList.contains('conf')||e.target.classList.contains('rast'))&&e.key==='Enter'){e.preventDefault();e.target.blur();$('#scanInput').focus();}});
 $('#draftArea').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.igual){const it=DRAFT.find(d=>d.nota.chave===b.dataset.igual);it.volConf=String(it.nota.volumes);salvarDraft();renderDraft();$('#scanInput').focus();}
   if(b.dataset.rm){DRAFT=DRAFT.filter(d=>d.nota.chave!==b.dataset.rm);salvarDraft();renderDraft();$('#scanInput').focus();}});
-$('#btnLimpar').onclick=async()=>{if(!DRAFT.length)return;const ok=await dialogo({titulo:'Limpar remessa?',html:'<p>Todas as NFs bipadas serão removidas da montagem (nada é gravado).</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Limpar',val:true,cls:'danger'}]});
-  if(ok){DRAFT=[];salvarDraft();renderDraft();feedback('','');$('#scanMsg').style.display='none';}focarScan();};
+$('#btnLimpar').onclick=async()=>{if(!DRAFT.length&&!SESS.mod)return;const ok=await dialogo({titulo:'Limpar remessa?',html:'<p>Todas as NFs bipadas serão removidas da montagem e a modalidade será desmarcada (nada é gravado).</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Limpar',val:true,cls:'danger'}]});
+  if(ok){DRAFT=[];resetSessao();renderDraft();$('#scanMsg').style.display='none';}focarScan();};
 $('#btnFinalizar').onclick=async()=>{
+  if(!SESS.mod)return toast('Escolha a modalidade de envio.','erro');
   if(!DRAFT.length)return toast('Bipe ao menos uma NF.','erro');
+  if(SESS.mod.tipo==='correios'){const semR=DRAFT.filter(d=>!d.rastreio);
+    if(semR.length){await dialogo({titulo:'Faltam códigos de postagem',html:`<p>Bipe a etiqueta de postagem das NFs: <b>${semR.map(f=>esc(f.nota.numero)).join(', ')}</b>.</p>`});return focarScan();}}
   const falta=DRAFT.filter(d=>d.volConf==='');
   if(falta.length){await dialogo({titulo:'Conferência incompleta',html:`<p>Informe os volumes conferidos das NFs: <b>${falta.map(f=>esc(f.nota.numero)).join(', ')}</b>.</p><p class="muted small">Use o botão “= XML” quando a contagem física bater com a nota.</p>`});return focarScan();}
-  const gs=grupos();const div=DRAFT.filter(d=>nInt(d.volConf)!==d.nota.volumes);
-  const ok=await dialogo({titulo:'Finalizar remessa',html:`<p>Serão gerados <b>${gs.length} romaneio(s)</b>, um por transportadora:</p><ul>${gs.map(g=>`<li>${esc(g.transportadora.nome)}: ${g.itens.length} NF, ${g.itens.reduce((a,b)=>a+nInt(b.volConf),0)} vol. conferidos</li>`).join('')}</ul>
-    ${div.length?`<p class="feedback warn" style="display:block">${div.length} NF com divergência de volumes. A diferença será registrada no romaneio.</p>`:''}<p>Responsável pela remessa: <b>${esc(USER.nome)}</b></p>`,
+  const gs=grupos();const div=DRAFT.filter(d=>nInt(d.volConf)!==d.nota.volumes);const alertas=DRAFT.filter(d=>d.alertaMod);
+  const ok=await dialogo({titulo:'Finalizar remessa',html:`<p>Modalidade: <b>${esc(modNomeCompleto(SESS.mod,SESS.evento))}</b></p><p>Serão gerados <b>${gs.length} romaneio(s)</b>:</p><ul>${gs.map(g=>`<li>${esc(g.transportadora.nome)}: ${g.itens.length} NF, ${g.itens.reduce((a,b)=>a+nInt(b.volConf),0)} vol. conferidos</li>`).join('')}</ul>
+    ${div.length?`<p class="feedback warn" style="display:block">${div.length} NF com divergência de volumes. A diferença será registrada no romaneio.</p>`:''}
+    ${alertas.length?`<p class="feedback warn" style="display:block">${alertas.length} NF com modalidade diferente da indicada no XML. Isso ficará registrado no romaneio.</p>`:''}<p>Responsável pela remessa: <b>${esc(USER.nome)}</b></p>`,
     botoes:[{txt:'Voltar',val:false,cls:'sec'},{txt:'Gerar romaneios',val:true,cls:'ok'}]});
   if(!ok)return focarScan();
   $('#btnFinalizar').disabled=true;const gerados=[],erros=[];
-  for(const g of gs){try{const r=await DB.finalizarGrupo(g,{uid:USER.uid,nome:USER.nome,email:USER.email});gerados.push(r);const chs=new Set(g.itens.map(i=>i.nota.chave));DRAFT=DRAFT.filter(d=>!chs.has(d.nota.chave));salvarDraft();}
+  for(const g of gs){try{const r=await DB.finalizarGrupo(g,{uid:USER.uid,nome:USER.nome,email:USER.email||''});gerados.push(r);const chs=new Set(g.itens.map(i=>i.nota.chave));DRAFT=DRAFT.filter(d=>!chs.has(d.nota.chave));salvarDraft();}
     catch(err){erros.push(`${g.transportadora.nome}: ${err.message}`);}}
+  if(!DRAFT.length)resetSessao();
   $('#btnFinalizar').disabled=false;renderDraft();
   if(erros.length)await dialogo({titulo:'Alguns romaneios não foram gerados',html:`<ul>${erros.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><p class="muted small">As NFs desses grupos continuam na montagem.</p>`});
   if(gerados.length){feedback(`✔ ${gerados.length} romaneio(s) gerado(s): ${gerados.map(r=>'Nº '+pad(r.numero)).join(', ')}`,'ok');
@@ -607,17 +720,19 @@ $$('[data-periodo-for]').forEach(box=>box.addEventListener('click',e=>{const b=e
 
 /* ================= HISTÓRICO ================= */
 let HIST=[];
+function filtraMod(a,sel){const v=$(sel).value;return v?a.filter(r=>modDe(r).id===v):a;}
 async function pesquisarHist(){
   const area=$('#histList');const de=$('#hDe').value,ate=$('#hAte').value;if(!de||!ate)return toast('Informe o período.','erro');
   area.innerHTML='<p class="muted">Carregando…</p>';
   try{let a=await DB.listarRomaneios(...rangeMs(de,ate));
     const st=$('#hStatus').value;if(st)a=a.filter(r=>r.status===st);
+    a=filtraMod(a,'#hMod');
     const b=$('#hBusca').value.trim().toUpperCase();
-    if(b){const d=onlyDig(b);a=a.filter(r=>(d&&(String(r.numero)===String(+d)||r.itens.some(i=>i.numero===String(+d)||i.chave===d)))||(r.transportadora.nome||'').toUpperCase().includes(b)||r.itens.some(i=>(i.cliente.nome||'').toUpperCase().includes(b))||(r.responsavel.nome||'').toUpperCase().includes(b));}
+    if(b){const d=onlyDig(b);a=a.filter(r=>(d&&(String(r.numero)===String(+d)||r.itens.some(i=>i.numero===String(+d)||i.chave===d)))||(r.transportadora.nome||'').toUpperCase().includes(b)||(r.evento||'').toUpperCase().includes(b)||r.itens.some(i=>(i.cliente.nome||'').toUpperCase().includes(b)||(i.rastreio||'').includes(b))||(r.responsavel.nome||'').toUpperCase().includes(b));}
     HIST=a;
     if(!a.length){area.innerHTML='<div class="empty">Nenhum romaneio no período.</div>';return;}
-    area.innerHTML=`<table class="t"><thead><tr><th>Romaneio</th><th>Data/hora</th><th>Transportadora</th><th class="num">NFs</th><th class="num">Vol. conf.</th><th>Divergências</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody>
-    ${a.map(r=>`<tr><td><b>Nº ${pad(r.numero)}</b></td><td>${fmtDataHora(r.criadoMs)}</td><td>${esc(r.transportadora.nome)}</td><td class="num">${r.totais.nfs}</td><td class="num">${r.totais.volConf}</td>
+    area.innerHTML=`<table class="t"><thead><tr><th>Romaneio</th><th>Data/hora</th><th>Modalidade</th><th>Transportadora / destino</th><th class="num">NFs</th><th class="num">Vol. conf.</th><th>Divergências</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody>
+    ${a.map(r=>`<tr><td><b>Nº ${pad(r.numero)}</b></td><td>${fmtDataHora(r.criadoMs)}</td><td><span class="pill">${esc(modDe(r).nome)}</span></td><td>${esc(r.transportadora.nome)}</td><td class="num">${r.totais.nfs}</td><td class="num">${r.totais.volConf}</td>
       <td>${r.totais.divergencias?`<span class="pill warn">${r.totais.divergencias}</span>`:'<span class="muted">—</span>'}</td><td>${esc(r.responsavel.nome)}</td>
       <td>${r.status==='cancelado'?'<span class="pill err">Cancelado</span>':'<span class="pill ok">Ativo</span>'}</td>
       <td style="white-space:nowrap"><button class="btn sec sm" data-ver="${esc(r.id)}">Ver</button> <button class="btn sec sm" data-imp="${esc(r.id)}">Imprimir</button></td></tr>`).join('')}</tbody></table>
@@ -625,13 +740,15 @@ async function pesquisarHist(){
   }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
 }
 $('#btnHist').onclick=pesquisarHist;$('#hBusca').addEventListener('keydown',e=>{if(e.key==='Enter')pesquisarHist();});
+$('#hMod').addEventListener('change',pesquisarHist);
 $('#histList').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
   const r=HIST.find(x=>x.id===(b.dataset.ver||b.dataset.imp));if(!r)return;
   if(b.dataset.imp)return imprimirRomaneios([r]);
+  const isC=modDe(r).tipo==='correios';
   const v=await dialogo({titulo:`Romaneio Nº ${pad(r.numero)} · ${r.transportadora.nome}`,
-    html:`<p class="small">Gerado em ${fmtDataHora(r.criadoMs)} por <b>${esc(r.responsavel.nome)}</b>${r.status==='cancelado'?`<br><span class="pill err">Cancelado</span> em ${fmtDataHora(r.cancelamento.em)} por ${esc(r.cancelamento.por)}: ${esc(r.cancelamento.motivo)}`:''}</p>
-    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Cliente</th><th>Cidade/UF</th><th class="num">XML</th><th class="num">Conf.</th></tr></thead><tbody>
-    ${r.itens.map(i=>`<tr class="${i.volXml!==i.volConf?'div':''}"><td>${esc(i.numero)}</td><td>${esc(i.cliente.nome)}</td><td>${esc(cidadeUf(i.endereco))}</td><td class="num">${i.volXml}</td><td class="num">${i.volConf}</td></tr>`).join('')}</tbody></table></div>`,
+    html:`<p class="small">Modalidade: <b>${esc(modNomeCompleto(modDe(r),r.evento))}</b><br>Gerado em ${fmtDataHora(r.criadoMs)} por <b>${esc(r.responsavel.nome)}</b>${r.status==='cancelado'?`<br><span class="pill err">Cancelado</span> em ${fmtDataHora(r.cancelamento.em)} por ${esc(r.cancelamento.por)}: ${esc(r.cancelamento.motivo)}`:''}</p>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Cliente</th><th>Cidade/UF</th>${isC?'<th>Postagem</th>':''}<th class="num">XML</th><th class="num">Conf.</th></tr></thead><tbody>
+    ${r.itens.map(i=>`<tr class="${i.volXml!==i.volConf?'div':''}"><td>${esc(i.numero)}${i.alertaMod?` <span class="pill warn">${esc(i.alertaMod)}</span>`:''}</td><td>${esc(i.cliente.nome)}</td><td>${esc(cidadeUf(i.endereco))}</td>${isC?`<td class="mono">${esc(i.rastreio||'')}</td>`:''}<td class="num">${i.volXml}</td><td class="num">${i.volConf}</td></tr>`).join('')}</tbody></table></div>`,
     botoes:[...(r.status==='ativo'?[{txt:'Cancelar romaneio',val:'cancel',cls:'danger'}]:[]),{txt:'Fechar',val:null,cls:'sec'},{txt:'Imprimir / PDF',val:'print'}]});
   if(v==='print')imprimirRomaneios([r]);
   if(v==='cancel'){const motivo=await dialogo({titulo:`Cancelar romaneio Nº ${pad(r.numero)}?`,html:'<p>As NFs voltam a ficar disponíveis para um novo romaneio. O romaneio cancelado continua no histórico.</p><label class="f">Motivo<input type="text" id="dlgMot" style="width:100%"></label>',
@@ -640,38 +757,47 @@ $('#histList').addEventListener('click',async e=>{const b=e.target.closest('butt
 });
 
 /* ================= IMPRESSÃO DO ROMANEIO ================= */
+function blocoColeta(r,m){
+  const L=(a,b)=>`<div class="ln"><span>${a}:</span><i></i>${b?`<span>${b}:</span><i></i>`:''}</div>`;
+  const volAss='<div class="ln"><span>Volumes recebidos:</span><i style="flex:.4"></i><span>Assinatura:</span><i></i></div>';
+  switch(m.tipo){
+    case 'transportadora':return `<h4>Coleta (transportadora): declaro ter recebido os volumes acima em perfeito estado</h4>${L('Nome','RG/CPF')}${L('Placa do veículo','Data/hora da coleta')}${volAss}`;
+    case 'correios':return `<h4>Postagem (${esc(m.nome)}): declaro ter recebido os volumes acima para postagem</h4>${L('Nome do atendente','Matrícula')}${L('Agência','Data/hora da postagem')}<div class="ln"><span>Volumes recebidos:</span><i style="flex:.4"></i><span>Assinatura / carimbo:</span><i></i></div>`;
+    case 'retirada':return `<h4>${esc(m.nome)}: declaro ter retirado os volumes acima em perfeito estado</h4>${L('Retirado por (nome)','RG/CPF')}${L('Data/hora da retirada','')}${volAss}`;
+    case 'evento':return `<h4>${esc(m.nome)}${r.evento?' · '+esc(r.evento):''}: declaro ter recebido os volumes acima em perfeito estado</h4>${L('Recebido por (nome)','RG/CPF')}${L('Data/hora do recebimento','')}${volAss}`;
+    default:return `<h4>Coleta (${esc(m.nome)}): declaro ter recebido os volumes acima em perfeito estado</h4>${L('Nome','RG/CPF')}${L('Placa do veículo','Data/hora da coleta')}${volAss}`;
+  }
+}
 function htmlRomaneio(r){
-  const t=r.totais;
+  const t=r.totais,m=modDe(r),isC=m.tipo==='correios',isT=m.tipo==='transportadora';const temAlerta=r.itens.some(i=>i.alertaMod);
   return `<div class="rp">
   ${r.status==='cancelado'?`<div class="canc">ROMANEIO CANCELADO em ${fmtDataHora(r.cancelamento.em)} por ${esc(r.cancelamento.por)}: ${esc(r.cancelamento.motivo)}</div>`:''}
-  <div class="h"><div><div class="tit">ROMANEIO DE EXPEDIÇÃO</div><div>${esc(r.emitente?.nome||'')}${r.emitente?.doc?' · CNPJ '+esc(fmtDoc(r.emitente.doc)):''}</div></div>
+  <div class="h"><div><div class="tit">ROMANEIO DE EXPEDIÇÃO · ${esc(m.nome.toUpperCase())}</div><div>${esc(r.emitente?.nome||'')}${r.emitente?.doc?' · CNPJ '+esc(fmtDoc(r.emitente.doc)):''}</div></div>
     <div class="nro">Nº ${pad(r.numero)}<div style="font-size:11px;font-weight:400">Emitido em ${fmtDataHora(r.criadoMs)}</div></div></div>
   <div class="info">
-    <div><b>Transportadora</b>${esc(r.transportadora.nome)}</div>
-    <div><b>CNPJ/CPF transportadora</b>${esc(fmtDoc(r.transportadora.doc))||'—'}</div>
-    <div><b>Modalidade do frete</b>${esc(r.transportadora.modFreteDesc||'—')}</div>
+    <div><b>Modalidade de envio</b>${esc(m.nome)}</div>
+    ${isT?`<div><b>Transportadora</b>${esc(r.transportadora.nome)}</div><div><b>CNPJ/CPF transportadora</b>${esc(fmtDoc(r.transportadora.doc))||'—'}</div>`:m.tipo==='evento'?`<div><b>Evento</b>${esc(r.evento||'—')}</div><div></div>`:'<div></div><div></div>'}
     <div><b>Responsável pela remessa</b>${esc(r.responsavel.nome)}${r.responsavel.email?'<br>'+esc(r.responsavel.email):''}</div>
     <div><b>Total de NFs</b>${t.nfs}</div>
     <div><b>Volumes (XML / conferidos)</b>${t.volXml} / ${t.volConf}</div>
     <div><b>Divergências de volume</b>${t.divergencias||'Nenhuma'}</div>
     <div><b>Peso bruto total (XML)</b>${t.peso?t.peso.toLocaleString('pt-BR')+' kg':'—'}</div>
+    ${isT?`<div><b>Modalidade do frete (XML)</b>${esc(r.transportadora.modFreteDesc||'—')}</div>`:''}
   </div>
-  <table><thead><tr><th>#</th><th>NF / Série</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th><th>Chave de acesso</th><th>Vol. XML</th><th>Vol. conf.</th></tr></thead><tbody>
-  ${r.itens.map((i,k)=>`<tr><td class="n">${k+1}</td><td><b>${esc(i.numero)}</b> / ${esc(i.serie)}</td><td>${fmtData(i.dataEmissao)}</td>
+  <table><thead><tr><th>#</th><th>NF / Série</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th><th>Chave de acesso</th>${isC?'<th>Cód. postagem</th>':''}<th>Vol. XML</th><th>Vol. conf.</th></tr></thead><tbody>
+  ${r.itens.map((i,k)=>`<tr><td class="n">${k+1}</td><td><b>${esc(i.numero)}</b> / ${esc(i.serie)}${i.alertaMod?' (*)':''}</td><td>${fmtData(i.dataEmissao)}</td>
     <td><b>${esc(i.cliente.nome)}</b><br>${esc(fmtDoc(i.cliente.doc))}</td>
     <td>${esc(enderecoStr(i.endereco))}<br>${esc(cidadeUf(i.endereco))} · CEP ${esc(fmtCep(i.endereco.cep))}</td>
-    <td class="ch">${fmtChave(i.chave)}</td><td class="n">${i.volXml}</td><td class="n ${i.volXml!==i.volConf?'dv':''}">${i.volConf}${i.volXml!==i.volConf?' (!)':''}</td></tr>`).join('')}
-  </tbody><tfoot><tr><td colspan="6">TOTAL: ${t.nfs} nota(s) fiscal(is)</td><td class="n">${t.volXml}</td><td class="n">${t.volConf}</td></tr></tfoot></table>
+    <td class="ch">${fmtChave(i.chave)}</td>${isC?`<td><b>${esc(i.rastreio||'')}</b></td>`:''}<td class="n">${i.volXml}</td><td class="n ${i.volXml!==i.volConf?'dv':''}">${i.volConf}${i.volXml!==i.volConf?' (!)':''}</td></tr>`).join('')}
+  </tbody><tfoot><tr><td colspan="${isC?7:6}">TOTAL: ${t.nfs} nota(s) fiscal(is)</td><td class="n">${t.volXml}</td><td class="n">${t.volConf}</td></tr></tfoot></table>
   ${t.divergencias?`<p style="margin:6px 0 0"><b>(!)</b> Volume conferido fisicamente diferente do informado no XML da NF.</p>`:''}
+  ${temAlerta?`<p style="margin:4px 0 0"><b>(*)</b> NF enviada em modalidade diferente da indicada no XML: ${r.itens.filter(i=>i.alertaMod).map(i=>esc(i.numero)+' ('+esc(i.alertaMod)+')').join('; ')}.</p>`:''}
   <div class="ass">
     <div class="box"><h4>Expedição (responsável pela remessa)</h4><div>${esc(r.responsavel.nome)}</div>
       <div class="ln"><span>Assinatura:</span><i></i></div><div class="ln"><span>Data/hora:</span><i></i></div></div>
-    <div class="box"><h4>Coleta (transportadora): declaro ter recebido os volumes acima em perfeito estado</h4>
-      <div class="ln"><span>Nome:</span><i></i><span>RG/CPF:</span><i></i></div>
-      <div class="ln"><span>Placa do veículo:</span><i></i><span>Data/hora da coleta:</span><i></i></div>
-      <div class="ln"><span>Volumes recebidos:</span><i style="flex:.4"></i><span>Assinatura:</span><i></i></div></div>
+    <div class="box">${blocoColeta(r,m)}</div>
   </div>
-  <div class="rod"><span>Romaneio Nº ${pad(r.numero)} · ${esc(r.transportadora.nome)}</span><span>Documento para rastreabilidade · gerado pelo sistema Romaneio NF-e · ID ${esc(r.id)}</span></div>
+  <div class="rod"><span>Romaneio Nº ${pad(r.numero)} · ${isT?esc(m.nome)+' · ':''}${esc(r.transportadora.nome)}</span><span>Documento para rastreabilidade · gerado pelo sistema Romaneio NF-e · ID ${esc(r.id)}</span></div>
   </div>`;
 }
 function imprimirHtml(html,titulo){const pa=$('#print-area');pa.innerHTML=html;const tOld=document.title;document.title=titulo;
@@ -683,42 +809,71 @@ let REL=[];
 async function gerarRel(){
   const de=$('#rDe').value,ate=$('#rAte').value;if(!de||!ate)return toast('Informe o período.','erro');
   const area=$('#relArea');area.innerHTML='<div class="card muted">Carregando…</div>';
-  try{REL=await DB.listarRomaneios(...rangeMs(de,ate));area.innerHTML=htmlRelatorio(REL,de,ate,false);}
+  try{REL=filtraMod(await DB.listarRomaneios(...rangeMs(de,ate)),'#rMod');area.innerHTML=htmlRelatorio(REL,de,ate,false);}
   catch(e){area.innerHTML=`<div class="card feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
 }
-function agregaRel(rs){const at=rs.filter(r=>r.status==='ativo');const por=new Map(),porResp=new Map();const divs=[];
-  for(const r of at){const k=r.transportadora.nome;if(!por.has(k))por.set(k,{nome:k,rom:0,nfs:0,vx:0,vc:0,div:0});const p=por.get(k);p.rom++;p.nfs+=r.totais.nfs;p.vx+=r.totais.volXml;p.vc+=r.totais.volConf;p.div+=r.totais.divergencias;
-    const rk=r.responsavel.nome;if(!porResp.has(rk))porResp.set(rk,{nome:rk,rom:0,nfs:0,vc:0});const q=porResp.get(rk);q.rom++;q.nfs+=r.totais.nfs;q.vc+=r.totais.volConf;
+$('#rMod').addEventListener('change',gerarRel);
+function agregaRel(rs){const at=rs.filter(r=>r.status==='ativo');const por=new Map(),porResp=new Map(),porMod=new Map();const divs=[];
+  const soma=(map,k,r)=>{if(!map.has(k))map.set(k,{nome:k,rom:0,nfs:0,vx:0,vc:0,div:0});const p=map.get(k);p.rom++;p.nfs+=r.totais.nfs;p.vx+=r.totais.volXml;p.vc+=r.totais.volConf;p.div+=r.totais.divergencias;};
+  for(const r of at){soma(por,r.transportadora.nome,r);soma(porMod,modDe(r).nome,r);soma(porResp,r.responsavel.nome,r);
     for(const i of r.itens)if(i.volXml!==i.volConf)divs.push({r,i});}
   const tot=[...por.values()].reduce((a,p)=>({rom:a.rom+p.rom,nfs:a.nfs+p.nfs,vx:a.vx+p.vx,vc:a.vc+p.vc,div:a.div+p.div}),{rom:0,nfs:0,vx:0,vc:0,div:0});
-  return {at,canc:rs.length-at.length,por:[...por.values()].sort((a,b)=>b.nfs-a.nfs),porResp:[...porResp.values()].sort((a,b)=>b.nfs-a.nfs),divs,tot};}
+  const ord=m=>[...m.values()].sort((a,b)=>b.nfs-a.nfs);
+  return {at,canc:rs.length-at.length,por:ord(por),porMod:ord(porMod),porResp:ord(porResp),divs,tot};}
 function htmlRelatorio(rs,de,ate,print){
   const A=agregaRel(rs);const T=A.tot;
   if(!print&&!rs.length)return '<div class="card empty">Nenhum romaneio no período.</div>';
   const tbl=print?'':'t';
-  const blocoTransp=`<table class="${tbl}"><thead><tr><th>Transportadora</th><th class="num">Romaneios</th><th class="num">NFs</th><th class="num">Vol. XML</th><th class="num">Vol. conferidos</th><th class="num">NFs com divergência</th></tr></thead><tbody>
-    ${A.por.map(p=>`<tr><td>${esc(p.nome)}</td><td class="num n">${p.rom}</td><td class="num n">${p.nfs}</td><td class="num n">${p.vx}</td><td class="num n">${p.vc}</td><td class="num n">${p.div}</td></tr>`).join('')}</tbody>
+  const tabela=(titulo,lista)=>`<table class="${tbl}"><thead><tr><th>${titulo}</th><th class="num">Romaneios</th><th class="num">NFs</th><th class="num">Vol. XML</th><th class="num">Vol. conferidos</th><th class="num">NFs com divergência</th></tr></thead><tbody>
+    ${lista.map(p=>`<tr><td>${esc(p.nome)}</td><td class="num n">${p.rom}</td><td class="num n">${p.nfs}</td><td class="num n">${p.vx}</td><td class="num n">${p.vc}</td><td class="num n">${p.div}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total</td><td class="num n">${T.rom}</td><td class="num n">${T.nfs}</td><td class="num n">${T.vx}</td><td class="num n">${T.vc}</td><td class="num n">${T.div}</td></tr></tfoot></table>`;
+  const blocoMod=tabela('Modalidade de envio',A.porMod);
+  const blocoTransp=tabela('Transportadora / destino',A.por);
   const blocoResp=`<table class="${tbl}"><thead><tr><th>Responsável pela remessa</th><th class="num">Romaneios</th><th class="num">NFs</th><th class="num">Vol. conferidos</th></tr></thead><tbody>
     ${A.porResp.map(p=>`<tr><td>${esc(p.nome)}</td><td class="num n">${p.rom}</td><td class="num n">${p.nfs}</td><td class="num n">${p.vc}</td></tr>`).join('')}</tbody></table>`;
-  const blocoDiv=A.divs.length?`<table class="${tbl}"><thead><tr><th>Romaneio</th><th>Data</th><th>Transportadora</th><th>NF</th><th>Cliente</th><th class="num">Vol. XML</th><th class="num">Vol. conf.</th><th class="num">Dif.</th></tr></thead><tbody>
-    ${A.divs.map(({r,i})=>`<tr><td>Nº ${pad(r.numero)}</td><td>${fmtDataHora(r.criadoMs)}</td><td>${esc(r.transportadora.nome)}</td><td>${esc(i.numero)}</td><td>${esc(i.cliente.nome)}</td><td class="num n">${i.volXml}</td><td class="num n">${i.volConf}</td><td class="num n">${i.volConf-i.volXml>0?'+':''}${i.volConf-i.volXml}</td></tr>`).join('')}</tbody></table>`:'<p>Nenhuma divergência no período.</p>';
-  const resumo=`Período: <b>${fmtData(de)} a ${fmtData(ate)}</b> · ${T.rom} romaneio(s) ativo(s) · ${T.nfs} NF(s) · ${T.vc} volume(s) conferido(s) · ${T.div} divergência(s)${A.canc?` · ${A.canc} cancelado(s) (fora dos totais)`:''}`;
+  const blocoDiv=A.divs.length?`<table class="${tbl}"><thead><tr><th>Romaneio</th><th>Data</th><th>Modalidade</th><th>Transportadora / destino</th><th>NF</th><th>Cliente</th><th class="num">Vol. XML</th><th class="num">Vol. conf.</th><th class="num">Dif.</th></tr></thead><tbody>
+    ${A.divs.map(({r,i})=>`<tr><td>Nº ${pad(r.numero)}</td><td>${fmtDataHora(r.criadoMs)}</td><td>${esc(modDe(r).nome)}</td><td>${esc(r.transportadora.nome)}</td><td>${esc(i.numero)}</td><td>${esc(i.cliente.nome)}</td><td class="num n">${i.volXml}</td><td class="num n">${i.volConf}</td><td class="num n">${i.volConf-i.volXml>0?'+':''}${i.volConf-i.volXml}</td></tr>`).join('')}</tbody></table>`:'<p>Nenhuma divergência no período.</p>';
+  const fm=$('#rMod').value?` · Modalidade: <b>${esc((MODS.find(m=>m.id===$('#rMod').value)||{}).nome||'')}</b>`:'';
+  const resumo=`Período: <b>${fmtData(de)} a ${fmtData(ate)}</b>${fm} · ${T.rom} romaneio(s) ativo(s) · ${T.nfs} NF(s) · ${T.vc} volume(s) conferido(s) · ${T.div} divergência(s)${A.canc?` · ${A.canc} cancelado(s) (fora dos totais)`:''}`;
   if(print)return `<div class="rp"><div class="h"><div class="tit">RELATÓRIO DE EXPEDIÇÃO</div><div style="text-align:right">Emitido em ${fmtDataHora(Date.now())}<br>por ${esc(USER.nome)}</div></div>
-    <p>${resumo}</p><h4>Por transportadora</h4>${blocoTransp}<h4>Por responsável</h4>${blocoResp}<h4>Divergências de volume</h4>${blocoDiv}</div>`;
+    <p>${resumo}</p><h4>Por modalidade de envio</h4>${blocoMod}<h4>Por transportadora / destino</h4>${blocoTransp}<h4>Por responsável</h4>${blocoResp}<h4>Divergências de volume</h4>${blocoDiv}</div>`;
   return `<div class="card"><p style="margin:0">${resumo}</p></div>
-    <div class="card"><h2>Por transportadora</h2><div class="tbl-wrap">${blocoTransp}</div></div>
+    <div class="card"><h2>Por modalidade de envio</h2><div class="tbl-wrap">${blocoMod}</div></div>
+    <div class="card"><h2>Por transportadora / destino</h2><div class="tbl-wrap">${blocoTransp}</div></div>
     <div class="card"><h2>Por responsável pela remessa</h2><div class="tbl-wrap">${blocoResp}</div></div>
     <div class="card"><h2>Divergências de volume</h2><div class="tbl-wrap">${blocoDiv}</div></div>`;
 }
 $('#btnRel').onclick=gerarRel;
 $('#btnRelPrint').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)return;imprimirHtml(htmlRelatorio(REL,$('#rDe').value,$('#rAte').value,true),`Relatorio expedicao ${$('#rDe').value} a ${$('#rAte').value}`);};
 $('#btnCsv').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)return toast('Nada para exportar.','erro');
-  const cab=['Romaneio','Data/hora','Status','Transportadora','CNPJ transportadora','Responsavel','NF','Serie','Emissao','Cliente','CNPJ/CPF cliente','Endereco','Cidade','UF','CEP','Vol XML','Vol conferido','Diferenca','Chave de acesso'];
+  const cab=['Romaneio','Data/hora','Status','Modalidade','Evento','Transportadora/destino','CNPJ transportadora','Responsavel','NF','Serie','Emissao','Cliente','CNPJ/CPF cliente','Endereco','Cidade','UF','CEP','Codigo de postagem','Vol XML','Vol conferido','Diferenca','Alerta modalidade','Chave de acesso'];
   const q=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   const linhas=[cab.join(';')];
-  for(const r of REL)for(const i of r.itens)linhas.push([pad(r.numero),fmtDataHora(r.criadoMs),r.status,r.transportadora.nome,fmtDoc(r.transportadora.doc),r.responsavel.nome,i.numero,i.serie,fmtData(i.dataEmissao),i.cliente.nome,fmtDoc(i.cliente.doc),enderecoStr(i.endereco),i.endereco.municipio,i.endereco.uf,fmtCep(i.endereco.cep),i.volXml,i.volConf,i.volConf-i.volXml,"'"+i.chave].map(q).join(';'));
+  for(const r of REL)for(const i of r.itens)linhas.push([pad(r.numero),fmtDataHora(r.criadoMs),r.status,modDe(r).nome,r.evento||'',r.transportadora.nome,fmtDoc(r.transportadora.doc),r.responsavel.nome,i.numero,i.serie,fmtData(i.dataEmissao),i.cliente.nome,fmtDoc(i.cliente.doc),enderecoStr(i.endereco),i.endereco.municipio,i.endereco.uf,fmtCep(i.endereco.cep),i.rastreio||'',i.volXml,i.volConf,i.volConf-i.volXml,i.alertaMod||'',"'"+i.chave].map(q).join(';'));
   const blob=new Blob(['﻿'+linhas.join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`expedicao_${$('#rDe').value}_a_${$('#rAte').value}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);};
+
+/* ================= CONFIGURAÇÕES (GESTOR) ================= */
+$('#cfgTipo').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+function renderCfg(){
+  if(!isGestor()){$('#cfgList').innerHTML='<div class="empty">Apenas o gestor pode editar as modalidades.</div>';return;}
+  $('#cfgList').innerHTML=`<table class="t"><thead><tr><th>Nome</th><th>Comportamento</th><th>Situação</th><th></th></tr></thead><tbody>
+  ${MODS.map((m,i)=>`<tr><td><input type="text" class="cfgNome" data-i="${i}" value="${esc(m.nome)}" style="width:100%;min-width:160px"></td><td class="small">${esc(TIPOS[m.tipo]||m.tipo)}</td>
+    <td>${m.ativo===false?'<span class="pill err">Desativada</span>':'<span class="pill ok">Ativa</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn sec sm" data-ren="${i}">Salvar nome</button> <button class="btn sm ${m.ativo===false?'ok':'danger'}" data-tog="${i}">${m.ativo===false?'Reativar':'Retirar da lista'}</button></td></tr>`).join('')}</tbody></table>`;
+}
+async function salvarMods(msg){try{await DB.salvarModalidades(MODS,USER);toast(msg,'ok');}catch(e){toast('Não foi possível salvar: '+e.message,'erro');await carregarMods();}preencherFiltrosMod();renderCfg();renderDraft();}
+$('#cfgList').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||!isGestor())return;
+  if(b.dataset.ren!==undefined){const i=+b.dataset.ren;const v=$(`.cfgNome[data-i="${i}"]`).value.trim();if(!v)return toast('O nome não pode ficar vazio.','erro');
+    if(MODS.some((m,k)=>k!==i&&m.nome.toLowerCase()===v.toLowerCase()))return toast('Já existe uma modalidade com esse nome.','erro');
+    MODS[i]={...MODS[i],nome:v};await salvarMods('Nome atualizado.');}
+  if(b.dataset.tog!==undefined){const i=+b.dataset.tog;const m=MODS[i];
+    if(m.ativo!==false){const ok=await dialogo({titulo:`Retirar "${m.nome}" da lista?`,html:'<p>Ela deixa de aparecer para novas remessas. Os romaneios já gerados com ela continuam no histórico e nos relatórios.</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Retirar',val:true,cls:'danger'}]});if(!ok)return;}
+    MODS[i]={...m,ativo:m.ativo===false};await salvarMods(MODS[i].ativo?'Modalidade reativada.':'Modalidade retirada da lista.');}});
+$('#btnCfgAdd').onclick=async()=>{if(!isGestor())return;const nome=$('#cfgNome').value.trim();const tipo=$('#cfgTipo').value;
+  if(!nome)return toast('Informe o nome da modalidade.','erro');
+  if(MODS.some(m=>m.nome.toLowerCase()===nome.toLowerCase()))return toast('Já existe uma modalidade com esse nome.','erro');
+  const id=nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)+'-'+Date.now().toString(36);
+  MODS.push({id,nome,tipo,ativo:true});$('#cfgNome').value='';await salvarMods(`Modalidade "${nome}" adicionada.`);};
 
 $('#ver').textContent=APP_VERSAO;
 </script>
