@@ -125,9 +125,9 @@ textarea{border:1px solid #cfd5df;border-radius:8px;padding:8px 10px;font:inheri
 .etq .d-box,.etq .v-box{border:1px solid #000;padding:1.5mm 2mm;margin:1.5mm 0}
 .etq .d-val{font-size:14px;font-weight:700}.etq .d-small{font-size:7.5px;margin-top:2mm}
 .etq .v-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:2mm}
-.etq .v-nf{font-size:24px;font-weight:800}.etq .v-num{font-size:40px;font-weight:800;line-height:1}.etq .v-vol{text-align:right}
-.etq .v-dest{font-size:15px;font-weight:800;margin:1mm 0}.etq .v-cep{font-size:16px;font-weight:800;margin-top:1mm}
-.etq .v-rem{font-size:9px}.etq .v-tr{font-size:10px;margin:1mm 0}
+.etq .v-nf{font-size:22px;font-weight:800}.etq .v-num{font-size:34px;font-weight:800;line-height:1}.etq .v-vol{text-align:right}
+.etq .v-dest{font-size:15px;font-weight:800;margin:.5mm 0}.etq .v-cep{font-size:16px;font-weight:800;margin-top:.5mm}
+.etq .v-rem{font-size:10px}.etq .v-remnome{font-size:12px;font-weight:800;margin:.5mm 0}.etq .v-box{font-size:11px;line-height:1.3}.etq .v-tr{font-size:10px;margin:1mm 0}
 .etq .v-cod{text-align:center;font-size:12px;font-weight:700}.etq .v-conf{text-align:center;font-size:8px;margin-top:1mm}
 .vchips{display:flex;flex-wrap:wrap;gap:4px}.vchip{display:inline-flex;flex-direction:column;align-items:center;border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;background:#fff}
 .vchip.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}.vchip.man{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}.vchip small{font-weight:400;font-size:10px}
@@ -180,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.5.0 (2026-09-29)";
+const APP_VERSAO = "1.5.1 (2026-09-29)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -455,7 +455,7 @@ function parseNFe(texto,arquivo=''){
   return {
     chave, numero:String(+tx(ide,'nNF')), serie:String(+tx(ide,'serie')||0), modelo:tx(ide,'mod'),
     dataEmissao:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),
-    emitente:{nome:tx(emit,'xNome'),doc:tx(emit,'CNPJ')||tx(emit,'CPF'),ie:filho(emit,'IE')?.textContent||'',uf:tx(filho(emit,'enderEmit'),'UF'),endereco:(()=>{const e=filho(emit,'enderEmit');return {logradouro:tx(e,'xLgr'),numero:tx(e,'nro'),complemento:tx(e,'xCpl'),bairro:tx(e,'xBairro'),municipio:tx(e,'xMun'),uf:tx(e,'UF'),cep:tx(e,'CEP')};})()},
+    emitente:{nome:tx(emit,'xNome'),doc:tx(emit,'CNPJ')||tx(emit,'CPF'),ie:filho(emit,'IE')?.textContent||'',uf:tx(filho(emit,'enderEmit'),'UF'),endereco:(()=>{const e=filho(emit,'enderEmit');return {logradouro:tx(e,'xLgr'),numero:tx(e,'nro'),complemento:tx(e,'xCpl'),bairro:tx(e,'xBairro'),municipio:tx(e,'xMun'),uf:tx(e,'UF'),cep:tx(e,'CEP'),fone:tx(e,'fone')};})()},
     tpNF:tx(ide,'tpNF')||'1', dhRecbto:tx(prot,'dhRecbto'),
     cliente:{nome:tx(dest,'xNome'),doc:filho(dest,'CNPJ')?.textContent||filho(dest,'CPF')?.textContent||filho(dest,'idEstrangeiro')?.textContent||'',ie:filho(dest,'IE')?.textContent||''},
     endereco:{logradouro:tx(ender,'xLgr'),numero:tx(ender,'nro'),complemento:tx(ender,'xCpl'),bairro:tx(ender,'xBairro'),municipio:tx(ender,'xMun'),uf:tx(ender,'UF'),cep:tx(ender,'CEP'),fone:tx(ender,'fone')},
@@ -1338,16 +1338,22 @@ function htmlDanfeEtiqueta(n){
     <div class="d-box"><div class="d-lbl">DESTINATÁRIO</div><b>${esc(n.cliente.nome)}</b><br>CNPJ/CPF ${esc(fmtDoc(n.cliente.doc))} · IE ${esc(n.cliente.ie||'—')} · UF ${esc(de.uf||'—')}</div>
     <div class="d-small">Consulte a autenticidade no portal nacional da NF-e: www.nfe.fazenda.gov.br/portal ou no site da SEFAZ autorizadora.</div>
   </div>`;}
+function blocoEndereco(e){e=e||{};const l1=[e.logradouro,e.numero].filter(Boolean).join(', ')+(e.complemento?' - '+e.complemento:'');
+  return `${l1?`<div>${esc(l1)}</div>`:''}${e.bairro?`<div>Bairro: ${esc(e.bairro)}</div>`:''}<div><b>${esc(e.municipio||'')}${e.uf?' / '+esc(e.uf):''}</b></div>`;}
+function fmtFone(f){f=onlyDig(f);if(f.length===11)return f.replace(/^(\d{2})(\d{5})(\d{4})$/,'($1) $2-$3');if(f.length===10)return f.replace(/^(\d{2})(\d{4})(\d{4})$/,'($1) $2-$3');return f;}
 function htmlEtiquetaVolume(n,v,t,conf){
   const em=n.emitente||{},ee=em.endereco||{},de=n.endereco||{},tr=n.transportadora||{};
   return `<div class="etq vol">
     <div class="v-top"><div><div class="v-lbl">NF-e</div><div class="v-nf">${esc(n.numero)}</div><div class="v-lbl">Série ${esc(n.serie)}</div></div>
       <div class="v-vol"><div class="v-lbl">VOLUME</div><div class="v-num">${String(v).padStart(2,'0')}/${String(t).padStart(2,'0')}</div></div></div>
     <div class="v-box"><div class="v-lbl">DESTINATÁRIO</div><div class="v-dest">${esc(n.cliente.nome)}</div>
-      <div>${esc(enderecoStr(de))}</div><div><b>${esc(cidadeUf(de))}</b></div><div class="v-cep">CEP ${esc(fmtCep(de.cep))}</div></div>
-    <div class="v-box v-rem"><div class="v-lbl">REMETENTE</div><b>${esc(em.nome||'')}</b><div>${esc(enderecoStr(ee))}${ee.municipio?' · '+esc(cidadeUf(ee)):''}${ee.cep?' · CEP '+esc(fmtCep(ee.cep)):''}</div></div>
+      ${n.cliente.doc?`<div>CNPJ/CPF: ${esc(fmtDoc(n.cliente.doc))}</div>`:''}
+      ${blocoEndereco(de)}<div class="v-cep">CEP ${esc(fmtCep(de.cep))}</div>${de.fone?`<div>Tel.: ${esc(fmtFone(de.fone))}</div>`:''}</div>
+    <div class="v-box v-rem"><div class="v-lbl">REMETENTE</div><div class="v-remnome">${esc(em.nome||'')}</div>
+      ${em.doc?`<div>CNPJ: ${esc(fmtDoc(em.doc))}</div>`:''}
+      ${blocoEndereco(ee)}${ee.cep?`<div><b>CEP ${esc(fmtCep(ee.cep))}</b></div>`:''}${ee.fone?`<div>Tel.: ${esc(fmtFone(ee.fone))}</div>`:''}</div>
     ${tr.nome?`<div class="v-tr">Transportadora: <b>${esc(tr.nome)}</b></div>`:''}
-    <div class="v-bar">${barcodeSVG(codVolume(n.chave,v,t),{modulo:0.25,altura:15})}</div>
+    <div class="v-bar">${barcodeSVG(codVolume(n.chave,v,t),{modulo:0.25,altura:13})}</div>
     <div class="v-cod">${esc(n.numero)} · VOL ${String(v).padStart(2,'0')}/${String(t).padStart(2,'0')}</div>
     ${conf?`<div class="v-conf">Conferido por ${esc(conf.nome)} em ${fmtDataHora(conf.ms)}</div>`:''}
   </div>`;}
