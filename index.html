@@ -111,8 +111,26 @@ textarea{border:1px solid #cfd5df;border-radius:8px;padding:8px 10px;font:inheri
   @page{size:A4 landscape;margin:9mm}
   body{background:#fff}
   body>*:not(#print-area){display:none!important}
+  body{padding:0!important}
   #print-area{display:block!important}
 }
+@page etq{size:100mm 150mm;margin:0}
+.etq{page:etq;width:100mm;height:150mm;box-sizing:border-box;padding:4mm 5mm;font:10px/1.3 Arial,Helvetica,sans-serif;color:#000;background:#fff;overflow:hidden;break-after:page}
+.etq:last-child{break-after:auto}
+.etq .d-tit{font-size:14px;font-weight:700;text-align:center;border-bottom:2px solid #000;padding-bottom:2mm;margin-bottom:2mm}
+.etq .d-row{display:flex;justify-content:space-between;gap:2mm;margin:1.5mm 0}
+.etq .d-lbl,.etq .v-lbl{font-size:8px;font-weight:700;text-transform:uppercase;color:#333}
+.etq .d-bar,.etq .v-bar{text-align:center;margin:1mm 0}
+.etq .d-ch{font-family:Consolas,monospace;font-size:9.5px;text-align:center;margin-bottom:2mm}
+.etq .d-box,.etq .v-box{border:1px solid #000;padding:1.5mm 2mm;margin:1.5mm 0}
+.etq .d-val{font-size:14px;font-weight:700}.etq .d-small{font-size:7.5px;margin-top:2mm}
+.etq .v-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:2mm}
+.etq .v-nf{font-size:24px;font-weight:800}.etq .v-num{font-size:40px;font-weight:800;line-height:1}.etq .v-vol{text-align:right}
+.etq .v-dest{font-size:15px;font-weight:800;margin:1mm 0}.etq .v-cep{font-size:16px;font-weight:800;margin-top:1mm}
+.etq .v-rem{font-size:9px}.etq .v-tr{font-size:10px;margin:1mm 0}
+.etq .v-cod{text-align:center;font-size:12px;font-weight:700}.etq .v-conf{text-align:center;font-size:8px;margin-top:1mm}
+.vchips{display:flex;flex-wrap:wrap;gap:4px}.vchip{display:inline-flex;flex-direction:column;align-items:center;border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;background:#fff}
+.vchip.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}.vchip.man{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}.vchip small{font-weight:400;font-size:10px}
 .rp{font:11px/1.35 Arial,Helvetica,sans-serif;color:#000}
 .rp + .rp{break-before:page}
 .rp .h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px;gap:16px}
@@ -162,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.3.0 (2026-09-29)";
+const APP_VERSAO = "1.4.0 (2026-09-29)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -217,9 +235,9 @@ const APP_VERSAO = "1.3.0 (2026-09-29)";
     <section id="tab-exp" class="hidden">
       <div class="card" id="modCard"></div>
       <div class="card hidden" id="scanCard">
-        <h2>Bipe a NF (código de barras do DANFE ou QR code)</h2>
+        <h2>Bipe as etiquetas de volume (ou o DANFE)</h2>
         <div class="scan-box">
-          <input id="scanInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Aguardando leitura… (ou digite a chave de 44 dígitos e Enter)">
+          <input id="scanInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Bipe as etiquetas de volume (ou o DANFE)">
           <button class="btn sec" id="btnCam">Usar câmera</button>
         </div>
         <div class="feedback" id="scanMsg"></div>
@@ -235,7 +253,7 @@ const APP_VERSAO = "1.3.0 (2026-09-29)";
             <button class="btn ok" id="btnFinalizar">Finalizar e gerar romaneios</button>
           </div>
         </div>
-        <p class="muted small" style="margin:6px 0 0">Informe os <b>volumes conferidos</b> fisicamente em cada NF. Diferenças em relação ao XML ficam destacadas e registradas. <span id="regraRom"></span></p>
+        <p class="muted small" style="margin:6px 0 0">Só entram NFs <b>conferidas na Embalagem</b>, e o romaneio só fecha com <b>todos os volumes bipados</b>. <span id="regraRom"></span></p>
         <div id="draftArea"></div>
       </div>
     </section>
@@ -436,7 +454,8 @@ function parseNFe(texto,arquivo=''){
   return {
     chave, numero:String(+tx(ide,'nNF')), serie:String(+tx(ide,'serie')||0), modelo:tx(ide,'mod'),
     dataEmissao:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),
-    emitente:{nome:tx(emit,'xNome'),doc:tx(emit,'CNPJ')||tx(emit,'CPF')},
+    emitente:{nome:tx(emit,'xNome'),doc:tx(emit,'CNPJ')||tx(emit,'CPF'),ie:filho(emit,'IE')?.textContent||'',uf:tx(filho(emit,'enderEmit'),'UF'),endereco:(()=>{const e=filho(emit,'enderEmit');return {logradouro:tx(e,'xLgr'),numero:tx(e,'nro'),complemento:tx(e,'xCpl'),bairro:tx(e,'xBairro'),municipio:tx(e,'xMun'),uf:tx(e,'UF'),cep:tx(e,'CEP')};})()},
+    tpNF:tx(ide,'tpNF')||'1', dhRecbto:tx(prot,'dhRecbto'),
     cliente:{nome:tx(dest,'xNome'),doc:filho(dest,'CNPJ')?.textContent||filho(dest,'CPF')?.textContent||filho(dest,'idEstrangeiro')?.textContent||'',ie:filho(dest,'IE')?.textContent||''},
     endereco:{logradouro:tx(ender,'xLgr'),numero:tx(ender,'nro'),complemento:tx(ender,'xCpl'),bairro:tx(ender,'xBairro'),municipio:tx(ender,'xMun'),uf:tx(ender,'UF'),cep:tx(ender,'CEP'),fone:tx(ender,'fone')},
     transportadora:{nome:tx(transporta,'xNome'),doc:(filho(transporta,'CNPJ')?.textContent||filho(transporta,'CPF')?.textContent||''),modFrete,modFreteDesc:MOD_FRETE[modFrete]||'',municipio:tx(transporta,'xMun'),uf:tx(transporta,'UF')},
@@ -454,7 +473,7 @@ function transpNome(t){return (t&&t.nome)||SEM_TRANSP;}
 
 /* ================= CAMADA DE DADOS ================= */
 function montarRomaneio(grupo,resp,numero){
-  const itens=grupo.itens.map(it=>{const n=it.nota;return {chave:n.chave,numero:n.numero,serie:n.serie,dataEmissao:n.dataEmissao,cliente:n.cliente,endereco:n.endereco,volXml:n.volumes,volConf:nInt(it.volConf),especie:n.especie,pesoBruto:n.pesoBruto,valor:n.valor,autorizada:n.autorizada,rastreio:it.rastreio||'',alertaMod:it.alertaMod||''};});
+  const itens=grupo.itens.map(it=>{const n=it.nota;return {chave:n.chave,numero:n.numero,serie:n.serie,dataEmissao:n.dataEmissao,cliente:n.cliente,endereco:n.endereco,volXml:n.volumes,volConf:nInt(it.volConf),especie:n.especie,pesoBruto:n.pesoBruto,valor:n.valor,autorizada:n.autorizada,rastreio:it.rastreio||'',alertaMod:it.alertaMod||'',vols:Object.entries(it.vols||{}).map(([v,x])=>({v:+v,rastreio:x.rastreio||'',manual:!!x.manual,just:x.just||'',ms:x.ms||0}))};});
   const volXml=itens.reduce((a,b)=>a+b.volXml,0),volConf=itens.reduce((a,b)=>a+b.volConf,0);
   return {numero,criadoMs:Date.now(),status:'ativo',transportadora:grupo.transportadora,modalidade:grupo.modalidade||null,evento:grupo.evento||'',emitente:grupo.itens[0].nota.emitente,responsavel:resp,itens,
     totais:{nfs:itens.length,volXml,volConf,divergencias:itens.filter(i=>i.volXml!==i.volConf).length,peso:Math.round(itens.reduce((a,b)=>a+(b.pesoBruto||0),0)*1000)/1000,valor:Math.round(itens.reduce((a,b)=>a+(b.valor||0),0)*100)/100},
@@ -469,7 +488,7 @@ const LocalDB={
   async contarProdutos(){return Object.keys(LS.get('rnfe_prods',{})).length;},
   async buscarProduto(q){const Q=q.toUpperCase();return Object.values(LS.get('rnfe_prods',{})).filter(p=>p.cProd.toUpperCase().includes(Q)||p.ean.includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
   async registrarOcorrencia(o){const a=LS.get('rnfe_ocor',[]);a.push(o);LS.set('rnfe_ocor',a.slice(-5000));},
-  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;LS.set('rnfe_notas',n);}},
+  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;n[c.chave].volumesEtiq=c.volumesEtiq;LS.set('rnfe_notas',n);}},
   async listarUsuarios(){return Object.values(LS.get('rnfe_users',{})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){return LS.get('rnfe_users',{})[em]||null;},
   async salvarUsuario(u){const m=LS.get('rnfe_users',{});m[u.email]={...(m[u.email]||{}),...u};if(!LS.set('rnfe_users',m))throw new Error('falha ao salvar neste navegador');},
@@ -507,7 +526,7 @@ const FireDB={
   async contarProdutos(){const s=await fdb.collection('produtos').get();return s.size;},
   async buscarProduto(q){const s=await fdb.collection('produtos').get();const Q=q.toUpperCase();return s.docs.map(d=>d.data()).filter(p=>String(p.cProd).toUpperCase().includes(Q)||String(p.ean).includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
   async registrarOcorrencia(o){await fdb.collection('conf_ocorrencias').add(o);},
-  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome});await b.commit();},
+  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome,volumesEtiq:c.volumesEtiq});await b.commit();},
   async listarUsuarios(){const q=await fdb.collection('usuarios').get();return q.docs.map(d=>d.data()).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){const s=await fdb.collection('usuarios').doc(em).get();return s.exists?s.data():null;},
   async salvarUsuario(u){await fdb.collection('usuarios').doc(u.email).set(u,{merge:true});},
@@ -630,10 +649,10 @@ function draftKey(){return 'rnfe_draft_'+(USER?USER.uid:'x');}
 function carregarDraft(){const d=LS.get(draftKey(),[]);
   if(Array.isArray(d)){DRAFT=d;SESS={mod:d.length?{...MOD_LEGADO}:null,evento:''};}
   else{DRAFT=d.itens||[];SESS={mod:d.mod||null,evento:d.evento||''};}
-  if(DRAFT.length&&!SESS.mod)SESS.mod={...MOD_LEGADO};}
+  if(DRAFT.length&&!SESS.mod)SESS.mod={...MOD_LEGADO};DRAFT.forEach(d=>{if(!d.vols)d.vols={};});}
 function salvarDraft(){LS.set(draftKey(),{mod:SESS.mod,evento:SESS.evento,itens:DRAFT});}
 function resetSessao(){SESS={mod:null,evento:''};salvarDraft();}
-function pendenteRastreio(){return SESS.mod&&SESS.mod.tipo==='correios'?DRAFT.find(d=>!d.rastreio)||null:null;}
+function pendenteRastreio(){if(!SESS.mod||SESS.mod.tipo!=='correios')return null;for(const it of DRAFT){for(const [v,x] of Object.entries(it.vols||{})){if(!x.rastreio)return {it,v:+v};}}return null;}
 function focarScan(){if($('#tab-exp').classList.contains('hidden'))return;if($('#scanCard').classList.contains('hidden'))return;const a=document.activeElement;if(a&&(a.classList.contains('conf')||a.classList.contains('rast')))return;if(document.querySelector('.modal-bg'))return;$('#scanInput').focus();}
 function feedback(t,c){const m=$('#scanMsg');m.className='feedback '+c;m.innerHTML=t;m.style.display='';}
 
@@ -660,38 +679,55 @@ $('#modCard').addEventListener('click',async e=>{const b=e.target.closest('butto
   SESS={mod:{id:m.id,nome:m.nome,tipo:m.tipo},evento};salvarDraft();renderDraft();feedback(`Modalidade definida: <b>${esc(modNomeCompleto(m,evento))}</b>. Pode começar a bipar.`,'ok');focarScan();});
 
 let processando=false;
+async function adicionarNF(ch){
+  const n=await DB.getNota(ch);
+  if(!n){const k=decodificarChave(ch);bip(false);feedback(`NF ${esc(k.numero)} (série ${esc(k.serie)}) não está na base. Importe o XML na aba <b>Base de XMLs</b> e bipe novamente.`,'err');return null;}
+  if(n.romaneioId){bip(false);feedback(`BLOQUEADO: NF ${esc(n.numero)} já está no romaneio Nº ${pad(n.romaneioNumero)}. Cancele aquele romaneio no Histórico se precisar reenviar.`,'err');return null;}
+  if(!n.conferida){bip(false);feedback(`BLOQUEADO: a NF ${esc(n.numero)} <b>ainda não foi conferida na Embalagem</b>. Confira os itens antes de expedir.`,'err');return null;}
+  const it={nota:n,vols:{},bipadoMs:Date.now(),alertaMod:alertaModalidade(n,SESS.mod)};DRAFT.unshift(it);return it;}
 async function processarLeitura(raw){
   if(processando)return;
   if(!SESS.mod){$('#scanInput').value='';bip(false);return feedback('Escolha primeiro a modalidade de envio.','err');}
-  const cod=String(raw||'').trim().toUpperCase().replace(/\s/g,'');
+  const cod=String(raw||'').trim().toUpperCase().replace(/\s/g,'');$('#scanInput').value='';
+  const vol=lerCodVolume(cod);
   if(SESS.mod.tipo==='correios'){const pend=pendenteRastreio();
-    if(RE_POSTAGEM.test(cod)){$('#scanInput').value='';
-      if(!pend){bip(false);return feedback('Nenhuma NF aguardando código de postagem. Bipe primeiro a NF.','warn');}
-      const dup=DRAFT.find(d=>d.rastreio===cod);if(dup){bip(false);return feedback(`O código ${esc(cod)} já foi usado na NF ${esc(dup.nota.numero)}.`,'err');}
-      pend.rastreio=cod;salvarDraft();renderDraft();bip(true);
-      return feedback(`✔ Código de postagem ${esc(cod)} vinculado à NF ${esc(pend.nota.numero)}. Pode bipar a próxima NF.`,'ok');}
-    if(pend){$('#scanInput').value='';bip(false);return feedback(`Bipe agora a <b>etiqueta de postagem</b> da NF ${esc(pend.nota.numero)} (código tipo AA123456789BR).`,'warn');}
+    if(RE_POSTAGEM.test(cod)){
+      if(!pend){bip(false);return feedback('Nenhum volume aguardando código de postagem. Bipe primeiro a etiqueta de volume.','warn');}
+      const dup=todosRastreios().find(x=>x.cod===cod);if(dup){bip(false);return feedback(`O código ${esc(cod)} já foi usado na NF ${esc(dup.nf)} vol ${dup.v}.`,'err');}
+      pend.it.vols[pend.v].rastreio=cod;salvarDraft();renderDraft();bip(true);
+      return feedback(`✔ Código de postagem ${esc(cod)} vinculado à NF ${esc(pend.it.nota.numero)} · volume ${pend.v}.`,'ok');}
+    if(pend){bip(false);return feedback(`Bipe agora a <b>etiqueta de postagem</b> do volume ${pend.v} da NF ${esc(pend.it.nota.numero)} (código tipo AA123456789BR).`,'warn');}
   }
-  const ch=extrairChave(raw);$('#scanInput').value='';
-  if(!ch){bip(false);return feedback('Leitura não reconhecida. Bipe o código de barras do DANFE ou o QR code da nota.','err');}
-  if(!chaveValida(ch)){bip(false);return feedback('Chave de acesso inválida (dígito verificador não confere). Tente bipar novamente.','err');}
-  if(DRAFT.some(d=>d.nota.chave===ch)){const k=decodificarChave(ch);bip(false);return feedback(`NF ${esc(k.numero)} já foi bipada nesta remessa.`,'warn');}
   processando=true;
   try{
-    const n=await DB.getNota(ch);
-    if(!n){const k=decodificarChave(ch);bip(false);return feedback(`NF ${esc(k.numero)} (série ${esc(k.serie)}) não está na base. Importe o XML na aba <b>Base de XMLs</b> e bipe novamente.`,'err');}
-    if(n.romaneioId){bip(false);return feedback(`BLOQUEADO: NF ${esc(n.numero)} já está no romaneio Nº ${pad(n.romaneioNumero)}. Cancele aquele romaneio no Histórico se precisar reenviar.`,'err');}
-    const alertaMod=alertaModalidade(n,SESS.mod);
-    DRAFT.unshift({nota:n,volConf:'',bipadoMs:Date.now(),rastreio:'',alertaMod});salvarDraft();renderDraft();bip(true);
-    let aviso='';if(alertaMod)aviso+=` · ATENÇÃO: ${alertaMod} (remessa: ${SESS.mod.nome})`;if(!n.autorizada)aviso+=' · ATENÇÃO: XML sem protocolo de autorização';if(!n.temVolume)aviso+=' · XML sem quantidade de volumes';
-    const prox=SESS.mod.tipo==='correios'?' <b>Agora bipe a etiqueta de postagem.</b>':'';
-    feedback(`✔ NF ${esc(n.numero)} · ${esc(n.cliente.nome)} · ${n.volumes} vol.${esc(aviso)}${prox}`,aviso?'warn':'ok');
+    if(vol){
+      let it=DRAFT.find(d=>d.nota.chave===vol.chave),nova=false;
+      if(!it){it=await adicionarNF(vol.chave);if(!it)return;nova=true;}
+      const esp=volsEsperados(it.nota);
+      if(vol.t!==esp||vol.v<1||vol.v>esp){if(nova){DRAFT=DRAFT.filter(d=>d!==it);}salvarDraft();renderDraft();bip(false);
+        return feedback(`Etiqueta inválida para a NF ${esc(it.nota.numero)}: volume ${vol.v}/${vol.t}, mas a NF tem ${esp} volume(s). Reimprima as etiquetas na Base de XMLs.`,'err');}
+      if(it.vols[vol.v]){bip(false);salvarDraft();renderDraft();return feedback(`Volume ${vol.v}/${esp} da NF ${esc(it.nota.numero)} já foi bipado.`,'warn');}
+      it.vols[vol.v]={ms:Date.now(),rastreio:'',manual:false,just:''};salvarDraft();renderDraft();bip(true);
+      const k=Object.keys(it.vols).length;
+      const prox=SESS.mod.tipo==='correios'?' <b>Agora bipe a etiqueta de postagem deste volume.</b>':(k<esp?` Faltam ${esp-k} volume(s).`:' Todos os volumes desta NF bipados ✔');
+      let aviso='';if(nova&&it.alertaMod)aviso=` · ATENÇÃO: ${esc(it.alertaMod)} (remessa: ${esc(SESS.mod.nome)})`;
+      return feedback(`✔ NF ${esc(it.nota.numero)} · ${esc(it.nota.cliente.nome)} · volume ${vol.v}/${esp}${aviso}.${prox}`,aviso?'warn':'ok');}
+    const ch=extrairChave(raw);
+    if(!ch){bip(false);return feedback('Leitura não reconhecida. Bipe a etiqueta de volume (ou o DANFE).','err');}
+    if(!chaveValida(ch)){bip(false);return feedback('Chave de acesso inválida (dígito verificador não confere). Tente bipar novamente.','err');}
+    const ja=DRAFT.find(d=>d.nota.chave===ch);
+    if(ja){bip(false);return feedback(`NF ${esc(ja.nota.numero)} já está na remessa. Bipe as <b>etiquetas de volume</b> dela.`,'warn');}
+    const it=await adicionarNF(ch);if(!it)return;salvarDraft();renderDraft();bip(true);
+    const esp=volsEsperados(it.nota);
+    feedback(`✔ NF ${esc(it.nota.numero)} · ${esc(it.nota.cliente.nome)} incluída. <b>Bipe as ${esp} etiqueta(s) de volume.</b>${it.alertaMod?` · ATENÇÃO: ${esc(it.alertaMod)}`:''}`,it.alertaMod?'warn':'ok');
   }catch(err){bip(false);feedback('Erro ao consultar a base: '+esc(err.message),'err');}
   finally{processando=false;focarScan();}
 }
+function todosRastreios(){const a=[];DRAFT.forEach(it=>Object.entries(it.vols||{}).forEach(([v,x])=>{if(x.rastreio)a.push({cod:x.rastreio,nf:it.nota.numero,v:+v});}));return a;}
+function volsLidos(it){return Object.keys(it.vols||{}).length;}
 let scanTimer=null;
 $('#scanInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(scanTimer);processarLeitura(e.target.value);}});
-$('#scanInput').addEventListener('input',e=>{clearTimeout(scanTimer);const v=e.target.value;if(/^\d{44}$/.test(v.trim()))scanTimer=setTimeout(()=>processarLeitura(v),150);});
+$('#scanInput').addEventListener('input',e=>{clearTimeout(scanTimer);const v=e.target.value;if(/^\d{44}$/.test(v.trim())||/^\d{50}$/.test(v.trim()))scanTimer=setTimeout(()=>processarLeitura(v),250);});
 
 function grupos(){if(!SESS.mod||!DRAFT.length)return [];const m=SESS.mod;const base={modalidade:{id:m.id,nome:m.nome,tipo:m.tipo},evento:SESS.evento||''};
   if(m.tipo!=='transportadora')return [{...base,key:'MOD',transportadora:{nome:modNomeCompleto(m,SESS.evento),doc:'',modFreteDesc:''},itens:DRAFT.slice()}];
@@ -700,45 +736,43 @@ function renderDraft(){
   renderMod();
   $('#regraRom').innerHTML=SESS.mod&&SESS.mod.tipo==='transportadora'?'Será gerado <b>um romaneio por transportadora</b>.':'Será gerado <b>um romaneio</b> com todas as NFs desta remessa.';
   const isC=SESS.mod&&SESS.mod.tipo==='correios';const pend=pendenteRastreio();
-  $('#scanInput').placeholder=pend?`Aguardando etiqueta de postagem da NF ${pend.nota.numero}…`:'Aguardando leitura… (ou digite a chave de 44 dígitos e Enter)';
-  const gs=grupos();const volX=DRAFT.reduce((a,b)=>a+b.nota.volumes,0);const conf=DRAFT.filter(d=>d.volConf!=='');const volC=conf.reduce((a,b)=>a+nInt(b.volConf),0);
-  const div=conf.filter(d=>nInt(d.volConf)!==d.nota.volumes).length;const semR=isC?DRAFT.filter(d=>!d.rastreio).length:0;
-  $('#expStats').innerHTML=SESS.mod?`<div class="stat"><b>${DRAFT.length}</b><span>NFs bipadas</span></div><div class="stat"><b>${gs.length}</b><span>Romaneio(s) a gerar</span></div><div class="stat"><b>${volX}</b><span>Volumes no XML</span></div><div class="stat"><b>${conf.length}/${DRAFT.length}</b><span>NFs conferidas · ${volC} vol.</span></div><div class="stat"><b style="color:${div?'var(--err)':'inherit'}">${div}</b><span>Divergências</span></div>${isC?`<div class="stat"><b style="color:${semR?'var(--err)':'inherit'}">${DRAFT.length-semR}/${DRAFT.length}</b><span>Com código de postagem</span></div>`:''}`:'';
+  $('#scanInput').placeholder=pend?`Aguardando etiqueta de postagem do volume ${pend.v} da NF ${pend.it.nota.numero}…`:'Bipe as etiquetas de volume (ou o DANFE)';
+  const gs=grupos();const esp=DRAFT.reduce((a,b)=>a+volsEsperados(b.nota),0),lid=DRAFT.reduce((a,b)=>a+volsLidos(b),0);
+  const completas=DRAFT.filter(d=>volsLidos(d)===volsEsperados(d.nota)).length;const comR=isC?todosRastreios().length:0;
+  $('#expStats').innerHTML=SESS.mod?`<div class="stat"><b>${DRAFT.length}</b><span>NFs na remessa</span></div><div class="stat"><b>${gs.length}</b><span>Romaneio(s) a gerar</span></div><div class="stat"><b style="color:${lid<esp?'var(--err)':'inherit'}">${lid}/${esp}</b><span>Volumes bipados</span></div><div class="stat"><b>${completas}/${DRAFT.length}</b><span>NFs com todos os volumes</span></div>${isC?`<div class="stat"><b style="color:${comR<lid?'var(--err)':'inherit'}">${comR}/${lid}</b><span>Volumes com código de postagem</span></div>`:''}`:'';
   if(!SESS.mod){$('#draftArea').innerHTML='<div class="empty">Escolha a modalidade de envio acima para começar.</div>';return;}
-  if(!DRAFT.length){$('#draftArea').innerHTML='<div class="empty">Nenhuma NF bipada ainda.</div>';return;}
+  if(!DRAFT.length){$('#draftArea').innerHTML='<div class="empty">Nenhuma NF bipada ainda. Bipe as etiquetas de volume.</div>';return;}
   $('#draftArea').innerHTML=gs.map(g=>{
-    const vx=g.itens.reduce((a,b)=>a+b.nota.volumes,0);
+    const vx=g.itens.reduce((a,b)=>a+volsEsperados(b.nota),0);
     return `<div class="grp-head"><h3>${esc(g.transportadora.nome)}</h3>${g.transportadora.doc?`<span class="pill">${esc(fmtDoc(g.transportadora.doc))}</span>`:''}<span class="pill">${g.itens.length} NF · ${vx} vol.</span></div>
-    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th>${isC?'<th>Código de postagem</th>':''}<th class="num">Vol. XML</th><th class="num">Vol. conferido</th><th></th></tr></thead><tbody>
-    ${g.itens.map(it=>{const n=it.nota;const d=it.volConf!==''&&nInt(it.volConf)!==n.volumes;
-      return `<tr class="${d?'div':''}"><td><b>${esc(n.numero)}</b><div class="small muted">Série ${esc(n.serie)}</div>${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}${it.alertaMod?`<div><span class="pill warn" title="${esc(it.alertaMod)}">${esc(it.alertaMod)}</span></div>`:''}</td>
-      <td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}<div class="small muted">${esc(fmtDoc(n.cliente.doc))}</div></td>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Cliente</th><th>Endereço de cadastro</th><th>Volumes bipados</th><th></th></tr></thead><tbody>
+    ${g.itens.map(it=>{const n=it.nota,e=volsEsperados(n),k=volsLidos(it),ok=k===e;
+      const chips=Array.from({length:e},(_,i)=>{const x=it.vols[i+1];return `<span class="vchip ${x?(x.manual?'man':'ok'):''}" title="${x&&x.manual?esc('Sem leitura: '+x.just):''}">${String(i+1).padStart(2,'0')}${x?' ✔':''}${isC&&x?`<small>${esc(x.rastreio||'aguardando postagem')}</small>`:''}</span>`;}).join('');
+      return `<tr class="${ok?'ok-row':''}"><td><b>${esc(n.numero)}</b><div class="small muted">Série ${esc(n.serie)} · ${fmtData(n.dataEmissao)}</div>${it.alertaMod?`<div><span class="pill warn">${esc(it.alertaMod)}</span></div>`:''}</td>
+      <td>${esc(n.cliente.nome)}<div class="small muted">${esc(fmtDoc(n.cliente.doc))}</div></td>
       <td>${esc(enderecoStr(n.endereco))}<div class="small muted">${esc(cidadeUf(n.endereco))} · CEP ${esc(fmtCep(n.endereco.cep))}</div></td>
-      ${isC?`<td><input class="rast" type="text" data-ch="${n.chave}" value="${esc(it.rastreio||'')}" placeholder="bipe a etiqueta" maxlength="13">${it.rastreio?'':'<div><span class="pill err">aguardando etiqueta</span></div>'}</td>`:''}
-      <td class="num">${n.volumes}${n.especie?`<div class="small muted">${esc(n.especie)}</div>`:''}</td>
-      <td class="num"><input class="conf" type="number" min="0" step="1" data-ch="${n.chave}" value="${esc(it.volConf)}" placeholder="—"> <button class="btn sec sm" data-igual="${n.chave}" title="Conferido igual ao XML">= XML</button>${d?`<div class="small" style="color:var(--err);font-weight:700">Dif.: ${nInt(it.volConf)-n.volumes>0?'+':''}${nInt(it.volConf)-n.volumes}</div>`:''}</td>
-      <td><button class="btn sec sm" data-rm="${n.chave}" title="Remover da remessa">✕</button></td></tr>`;}).join('')}
+      <td><div class="vchips">${chips}</div><div class="small ${ok?'':'muted'}">${k}/${e} volume(s)${+n.volumes!==e?` · XML: ${n.volumes}`:''}</div></td>
+      <td style="white-space:nowrap">${ok?'':`<button class="btn sec sm" data-vman="${n.chave}" title="Etiqueta de volume ilegível">Volume sem leitura</button> `}<button class="btn sec sm" data-rm="${n.chave}" title="Remover da remessa">✕</button></td></tr>`;}).join('')}
     </tbody></table></div>`;}).join('');
 }
-$('#draftArea').addEventListener('change',e=>{const el=e.target;const it=DRAFT.find(d=>d.nota.chave===el.dataset.ch);if(!it)return;
-  if(el.classList.contains('conf')){const v=el.value.trim();it.volConf=v===''?'':String(Math.max(0,nInt(v)));salvarDraft();renderDraft();focarScan();}
-  if(el.classList.contains('rast')){const v=el.value.trim().toUpperCase().replace(/\s/g,'');
-    if(v&&!RE_POSTAGEM.test(v)){toast('Código de postagem inválido. Formato esperado: AA123456789BR.','erro');el.value=it.rastreio||'';return;}
-    const dup=v&&DRAFT.find(d=>d!==it&&d.rastreio===v);if(dup){toast(`Código já usado na NF ${dup.nota.numero}.`,'erro');el.value=it.rastreio||'';return;}
-    it.rastreio=v;salvarDraft();renderDraft();$('#scanInput').focus();}});
-$('#draftArea').addEventListener('keydown',e=>{if((e.target.classList.contains('conf')||e.target.classList.contains('rast'))&&e.key==='Enter'){e.preventDefault();e.target.blur();$('#scanInput').focus();}});
-$('#draftArea').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.igual){const it=DRAFT.find(d=>d.nota.chave===b.dataset.igual);it.volConf=String(it.nota.volumes);salvarDraft();renderDraft();$('#scanInput').focus();}
+$('#draftArea').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.vman){const it=DRAFT.find(d=>d.nota.chave===b.dataset.vman);if(!it)return;const esp=volsEsperados(it.nota);
+    const falt=Array.from({length:esp},(_,i)=>i+1).filter(v=>!it.vols[v]);
+    const r=await dialogo({titulo:`NF ${it.nota.numero}: volume sem leitura`,html:`<label class="f">Volume<select id="dlgVv">${falt.map(v=>`<option value="${v}">${String(v).padStart(2,'0')}/${String(esp).padStart(2,'0')}</option>`).join('')}</select></label>
+      <label class="f" style="margin-top:8px">Justificativa (obrigatória)<input type="text" id="dlgVj" placeholder="Ex.: etiqueta rasgada"></label>`,
+      botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar volume',val:bg=>{const j=bg.querySelector('#dlgVj').value.trim();if(j.length<5){toast('Escreva a justificativa.','erro');return undefined;}return {v:+bg.querySelector('#dlgVv').value,j};}}]});
+    if(r){it.vols[r.v]={ms:Date.now(),rastreio:'',manual:true,just:r.j};salvarDraft();renderDraft();bip(true);feedback(`Volume ${r.v}/${esp} da NF ${esc(it.nota.numero)} confirmado sem leitura (registrado).${SESS.mod.tipo==='correios'?' <b>Bipe a etiqueta de postagem deste volume.</b>':''}`,'warn');}
+    return focarScan();}
   if(b.dataset.rm){DRAFT=DRAFT.filter(d=>d.nota.chave!==b.dataset.rm);salvarDraft();renderDraft();$('#scanInput').focus();}});
 $('#btnLimpar').onclick=async()=>{if(!DRAFT.length&&!SESS.mod)return;const ok=await dialogo({titulo:'Limpar remessa?',html:'<p>Todas as NFs bipadas serão removidas da montagem e a modalidade será desmarcada (nada é gravado).</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Limpar',val:true,cls:'danger'}]});
   if(ok){DRAFT=[];resetSessao();renderDraft();$('#scanMsg').style.display='none';}focarScan();};
 $('#btnFinalizar').onclick=async()=>{
   if(!SESS.mod)return toast('Escolha a modalidade de envio.','erro');
   if(!DRAFT.length)return toast('Bipe ao menos uma NF.','erro');
-  if(SESS.mod.tipo==='correios'){const semR=DRAFT.filter(d=>!d.rastreio);
-    if(semR.length){await dialogo({titulo:'Faltam códigos de postagem',html:`<p>Bipe a etiqueta de postagem das NFs: <b>${semR.map(f=>esc(f.nota.numero)).join(', ')}</b>.</p>`});return focarScan();}}
-  const falta=DRAFT.filter(d=>d.volConf==='');
-  if(falta.length){await dialogo({titulo:'Conferência incompleta',html:`<p>Informe os volumes conferidos das NFs: <b>${falta.map(f=>esc(f.nota.numero)).join(', ')}</b>.</p><p class="muted small">Use o botão “= XML” quando a contagem física bater com a nota.</p>`});return focarScan();}
+  const falta=DRAFT.filter(d=>volsLidos(d)<volsEsperados(d.nota));
+  if(falta.length){await dialogo({titulo:'Faltam volumes',html:`<p>Bipe todas as etiquetas de volume antes de fechar:</p><ul>${falta.map(f=>`<li>NF ${esc(f.nota.numero)}: ${volsLidos(f)}/${volsEsperados(f.nota)}</li>`).join('')}</ul>`});return focarScan();}
+  if(SESS.mod.tipo==='correios'){const p=pendenteRastreio();if(p){await dialogo({titulo:'Faltam códigos de postagem',html:`<p>Bipe a etiqueta de postagem do volume ${p.v} da NF <b>${esc(p.it.nota.numero)}</b> e dos demais volumes sem código.</p>`});return focarScan();}}
+  DRAFT.forEach(d=>{d.volConf=String(volsLidos(d));d.rastreio=Object.keys(d.vols).sort((x,y)=>x-y).map(v=>d.vols[v].rastreio).filter(Boolean).join(', ');});
   const gs=grupos();const div=DRAFT.filter(d=>nInt(d.volConf)!==d.nota.volumes);const alertas=DRAFT.filter(d=>d.alertaMod);
   const ok=await dialogo({titulo:'Finalizar remessa',html:`<p>Modalidade: <b>${esc(modNomeCompleto(SESS.mod,SESS.evento))}</b></p><p>Serão gerados <b>${gs.length} romaneio(s)</b>:</p><ul>${gs.map(g=>`<li>${esc(g.transportadora.nome)}: ${g.itens.length} NF, ${g.itens.reduce((a,b)=>a+nInt(b.volConf),0)} vol. conferidos</li>`).join('')}</ul>
     ${div.length?`<p class="feedback warn" style="display:block">${div.length} NF com divergência de volumes. A diferença será registrada no romaneio.</p>`:''}
@@ -811,12 +845,14 @@ async function listarBase(){
   const area=$('#baseList');area.innerHTML='<p class="muted">Carregando…</p>';
   try{const a=await DB.listarNotas($('#baseBusca').value);
     if(!a.length){area.innerHTML='<div class="empty">Nenhuma nota encontrada.</div>';return;}
-    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Situação</th></tr></thead><tbody>
+    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Embalagem</th><th>Situação</th></tr></thead><tbody>
     ${a.map(n=>`<tr><td><b>${esc(n.numero)}</b> <span class="small muted">s.${esc(n.serie)}</span></td><td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}</td><td>${esc(cidadeUf(n.endereco))}</td><td>${esc(transpNome(n.transportadora))}</td><td class="num">${n.volumes}</td>
+      <td>${n.conferida?`<span class="pill ok" title="${esc(n.conferidoPor||'')} · ${n.conferenciaMs?fmtDataHora(n.conferenciaMs):''}">Conferida</span> <button class="btn sec sm" data-etq="${n.chave}">Etiquetas</button>`:(Array.isArray(n.itens)?'<span class="pill warn">Não conferida</span>':'<span class="pill">Reimportar XML</span>')}</td>
       <td>${n.romaneioId?`<span class="pill ok">Romaneio Nº ${pad(n.romaneioNumero)}</span>`:'<span class="pill">Disponível</span>'} ${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td></tr>`).join('')}</tbody></table>
     <p class="muted small">${a.length} nota(s) exibida(s)${a.length>=300?' (as mais recentes; use a busca para encontrar outras)':''}.</p>`;
   }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
 }
+$('#baseList').addEventListener('click',e=>{const b=e.target.closest('button[data-etq]');if(b)reimprimirEtiquetas(b.dataset.etq);});
 $('#btnBaseBuscar').onclick=listarBase;$('#baseBusca').addEventListener('keydown',e=>{if(e.key==='Enter')listarBase();});
 
 /* ================= PERÍODOS ================= */
@@ -1214,9 +1250,12 @@ async function embManual(id){
 async function embVerificarFim(){
   const {t,r}=embTotais();if(r<t)return;
   const n=EMB.nota,fim=Date.now();
+  let volumesEtiq=+n.volumes||0;
+  if(volumesEtiq<1){bip(true);const q=await dialogo({titulo:'Quantos volumes (caixas)?',html:`<p>O XML da NF ${esc(n.numero)} não informa a quantidade de volumes. Quantas caixas foram fechadas?</p><input type="number" id="dlgQv" min="1" max="999" value="1" style="width:120px;font-size:20px">`,
+    botoes:[{txt:'Confirmar',val:bg=>{const v=Math.floor(+bg.querySelector('#dlgQv').value||0);if(v<1||v>999){toast('Informe de 1 a 999.','erro');return undefined;}return v;}}]});volumesEtiq=q;}
   const conf={chave:n.chave,numero:n.numero,serie:n.serie,cliente:{nome:n.cliente.nome,doc:n.cliente.doc},volumes:n.volumes,
     operador:{uid:USER.uid,nome:USER.nome},inicioMs:EMB.inicioMs,fimMs:fim,duracaoS:Math.round((fim-EMB.inicioMs)/1000),recontagens:EMB.recontagens,
-    unidades:t,reconferencia:EMB.reconf,
+    unidades:t,reconferencia:EMB.reconf,volumesEtiq,
     itens:EMB.linhas.map(l=>({n:l.n,cProd:l.cProd,ean:l.ean,origemEan:l.origem,xProd:l.xProd,qtd:l.qtd,lote:l.lote,dVal:l.dVal,modos:l.modos,justificativas:l.just})),
     ocorrencias:EMB.ocorr.map(o=>({tipo:o.tipo,detalhe:o.detalhe||'',ms:o.ms})),status:'conferida'};
   try{await DB.salvarConferencia(conf);}
@@ -1224,7 +1263,10 @@ async function embVerificarFim(){
   EMB=null;renderEmb();
   const mm=Math.floor(conf.duracaoS/60),ss=String(conf.duracaoS%60).padStart(2,'0');
   embMsg(`✔ <b>NF ${esc(n.numero)} conferida</b> · ${t} unidade(s) · ${mm}:${ss} min · ${conf.recontagens} recontagem(ns). Bipe o próximo DANFE.`,'ok');
-  await dialogo({titulo:`NF ${n.numero} conferida ✔`,html:`<p><b>${esc(n.cliente.nome)}</b></p><p>${t} unidade(s) conferida(s) em ${mm}:${ss} min.</p><p>Volumes no XML: <b>${n.volumes}</b>. Pode fechar e identificar as caixas.</p><p class="muted small">A impressão automática de etiquetas de volume e do DANFE entra na próxima etapa.</p>`,botoes:[{txt:'OK',val:true}]});}
+  const nImp={...n,volumesEtiq,conferida:true,conferidoPor:USER.nome,conferenciaMs:fim};
+  imprimirEtiquetas(nImp,{conf:{nome:USER.nome,ms:fim}});
+  const again=await dialogo({titulo:`NF ${n.numero} conferida ✔`,html:`<p><b>${esc(n.cliente.nome)}</b></p><p>${t} unidade(s) conferida(s) em ${mm}:${ss} min.</p><p>Enviado para impressão: <b>DANFE simplificado</b> + <b>${volumesEtiq} etiqueta(s) de volume</b>. Cole uma etiqueta em cada caixa.</p>`,botoes:[{txt:'Imprimir de novo',val:true,cls:'sec'},{txt:'OK',val:false}]});
+  if(again)imprimirEtiquetas(nImp,{conf:{nome:USER.nome,ms:fim}});}
 $('#embInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();embScan(e.target.value);}});
 $('#embArea').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||!EMB)return;
   if(b.dataset.mult){const v=b.dataset.mult==='x'?$('#embArea .embQtd').value:b.dataset.mult;return embSomar(v);}
@@ -1256,6 +1298,62 @@ $('#btnProdImp').onclick=async()=>{if(!isGestor())return;const lista=parseProdut
 $('#btnProdBusca').onclick=async()=>{const q=$('#prodBusca').value.trim();if(!q)return;const area=$('#prodRes');
   try{const r=await DB.buscarProduto(q);area.innerHTML=r.length?`<table class="t"><thead><tr><th>Código</th><th>EAN</th><th>Descrição</th><th>Origem</th></tr></thead><tbody>${r.map(p=>`<tr><td>${esc(p.cProd)}</td><td class="mono">${esc(p.ean)}</td><td>${esc(p.descricao||'')}</td><td>${esc(p.origem||'')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">Nenhum produto encontrado.</p>';}
   catch(e){area.innerHTML=`<p class="feedback err" style="display:block">${esc(traduzErro(e))}</p>`;}};
+
+/* ================= CÓDIGO DE BARRAS (Code 128-C) ================= */
+const C128=["11011001100", "11001101100", "11001100110", "10010011000", "10010001100", "10001001100", "10011001000", "10011000100", "10001100100", "11001001000", "11001000100", "11000100100", "10110011100", "10011011100", "10011001110", "10111001100", "10011101100", "10011100110", "11001110010", "11001011100", "11001001110", "11011100100", "11001110100", "11101101110", "11101001100", "11100101100", "11100100110", "11101100100", "11100110100", "11100110010", "11011011000", "11011000110", "11000110110", "10100011000", "10001011000", "10001000110", "10110001000", "10001101000", "10001100010", "11010001000", "11000101000", "11000100010", "10110111000", "10110001110", "10001101110", "10111011000", "10111000110", "10001110110", "11101110110", "11010001110", "11000101110", "11011101000", "11011100010", "11011101110", "11101011000", "11101000110", "11100010110", "11101101000", "11101100010", "11100011010", "11101111010", "11001000010", "11110001010", "10100110000", "10100001100", "10010110000", "10010000110", "10000101100", "10000100110", "10110010000", "10110000100", "10011010000", "10011000010", "10000110100", "10000110010", "11000010010", "11001010000", "11110111010", "11000010100", "10001111010", "10100111100", "10010111100", "10010011110", "10111100100", "10011110100", "10011110010", "11110100100", "11110010100", "11110010010", "11011011110", "11011110110", "11110110110", "10101111000", "10100011110", "10001011110", "10111101000", "10111100010", "11110101000", "11110100010", "10111011110", "10111101110", "11101011110", "11110101110", "11010000100", "11010010000", "11010011100"];
+function code128C(digits){ // apenas dígitos, quantidade par
+  digits=onlyDig(digits);if(digits.length%2)digits='0'+digits;
+  const vals=[105];for(let i=0;i<digits.length;i+=2)vals.push(+digits.substr(i,2));
+  let sum=105;for(let i=1;i<vals.length;i++)sum+=vals[i]*i;vals.push(sum%103);
+  return vals.map(v=>C128[v]).join('')+'1100011101011';}
+function barcodeSVG(digits,{modulo=0.25,altura=14}={}){
+  const bits=code128C(digits),q=10,w=(bits.length+q*2)*modulo;let x=q*modulo,rects='';
+  for(let i=0;i<bits.length;){if(bits[i]==='1'){let j=i;while(bits[j]==='1')j++;rects+=`<rect x="${(q+i)*modulo}" y="0" width="${(j-i)*modulo}" height="${altura}"/>`;i=j;}else i++;}
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${altura}mm" viewBox="0 0 ${w} ${altura}" shape-rendering="crispEdges"><rect width="${w}" height="${altura}" fill="#fff"/><g fill="#000">${rects}</g></svg>`;}
+// código da etiqueta de volume: chave (44) + volume (3) + total (3) = 50 dígitos
+function codVolume(chave,v,t){return chave+String(v).padStart(3,'0')+String(t).padStart(3,'0');}
+function lerCodVolume(raw){const d=onlyDig(raw);if(d.length!==50)return null;const ch=d.slice(0,44);if(!chaveValida(ch))return null;return {chave:ch,v:+d.slice(44,47),t:+d.slice(47,50)};}
+function volsEsperados(n){return +n.volumesEtiq||+n.volumes||1;}
+
+/* ================= ETIQUETAS 10x15 E DANFE SIMPLIFICADO ================= */
+function endLinha(e){return e?[enderecoStr(e)].filter(Boolean).join(''):'';}
+function htmlDanfeEtiqueta(n){
+  const em=n.emitente||{},de=n.endereco||{};
+  return `<div class="etq danfe">
+    <div class="d-tit">DANFE SIMPLIFICADO - ETIQUETA</div>
+    <div class="d-row"><div><b>${n.tpNF==='0'?'0 - ENTRADA':'1 - SAÍDA'}</b></div><div>Nº <b>${esc(n.numero)}</b> · Série <b>${esc(n.serie)}</b></div><div>Emissão <b>${fmtData(n.dataEmissao)}</b></div></div>
+    <div class="d-lbl">CHAVE DE ACESSO</div>
+    <div class="d-bar">${barcodeSVG(n.chave,{modulo:0.25,altura:13})}</div>
+    <div class="d-ch">${fmtChave(n.chave)}</div>
+    <div class="d-lbl">PROTOCOLO DE AUTORIZAÇÃO</div><div>${esc(n.protocolo||'—')}${n.dhRecbto?' · '+esc(fmtDataHoraIso(n.dhRecbto)):''}</div>
+    <div class="d-box"><div class="d-lbl">EMITENTE</div><b>${esc(em.nome||'')}</b><br>CNPJ/CPF ${esc(fmtDoc(em.doc))} · IE ${esc(em.ie||'—')} · UF ${esc(em.uf||(em.endereco&&em.endereco.uf)||'—')}</div>
+    <div class="d-box"><div class="d-lbl">DESTINATÁRIO</div><b>${esc(n.cliente.nome)}</b><br>CNPJ/CPF ${esc(fmtDoc(n.cliente.doc))} · IE ${esc(n.cliente.ie||'—')} · UF ${esc(de.uf||'—')}</div>
+    <div class="d-row"><div>VALOR TOTAL DA NF-e</div><div class="d-val">R$ ${(+n.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+    <div class="d-small">Consulte a autenticidade no portal nacional da NF-e: www.nfe.fazenda.gov.br/portal ou no site da SEFAZ autorizadora.</div>
+  </div>`;}
+function htmlEtiquetaVolume(n,v,t,conf){
+  const em=n.emitente||{},ee=em.endereco||{},de=n.endereco||{},tr=n.transportadora||{};
+  return `<div class="etq vol">
+    <div class="v-top"><div><div class="v-lbl">NF-e</div><div class="v-nf">${esc(n.numero)}</div><div class="v-lbl">Série ${esc(n.serie)}</div></div>
+      <div class="v-vol"><div class="v-lbl">VOLUME</div><div class="v-num">${String(v).padStart(2,'0')}/${String(t).padStart(2,'0')}</div></div></div>
+    <div class="v-box"><div class="v-lbl">DESTINATÁRIO</div><div class="v-dest">${esc(n.cliente.nome)}</div>
+      <div>${esc(enderecoStr(de))}</div><div><b>${esc(cidadeUf(de))}</b></div><div class="v-cep">CEP ${esc(fmtCep(de.cep))}</div></div>
+    <div class="v-box v-rem"><div class="v-lbl">REMETENTE</div><b>${esc(em.nome||'')}</b><div>${esc(enderecoStr(ee))}${ee.municipio?' · '+esc(cidadeUf(ee)):''}${ee.cep?' · CEP '+esc(fmtCep(ee.cep)):''}</div></div>
+    ${tr.nome?`<div class="v-tr">Transportadora: <b>${esc(tr.nome)}</b></div>`:''}
+    <div class="v-bar">${barcodeSVG(codVolume(n.chave,v,t),{modulo:0.25,altura:15})}</div>
+    <div class="v-cod">${esc(n.numero)} · VOL ${String(v).padStart(2,'0')}/${String(t).padStart(2,'0')}</div>
+    ${conf?`<div class="v-conf">Conferido por ${esc(conf.nome)} em ${fmtDataHora(conf.ms)}</div>`:''}
+  </div>`;}
+function fmtDataHoraIso(s){const d=new Date(s);return isNaN(d)?s:fmtDataHora(d.getTime());}
+function imprimirEtiquetas(n,{danfe=true,volumes=true,conf=null}={}){
+  const t=volsEsperados(n);let html='';
+  if(danfe)html+=htmlDanfeEtiqueta(n);
+  if(volumes)for(let v=1;v<=t;v++)html+=htmlEtiquetaVolume(n,v,t,conf);
+  imprimirHtml(html,`Etiquetas NF ${n.numero}`);}
+async function reimprimirEtiquetas(chave){
+  const n=await DB.getNota(chave);if(!n)return toast('NF não encontrada.','erro');
+  const op=await dialogo({titulo:`Reimprimir · NF ${n.numero}`,html:`<p>${esc(n.cliente.nome)} · ${volsEsperados(n)} volume(s)</p>`,botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Só DANFE',val:'d',cls:'sec'},{txt:'Só etiquetas de volume',val:'v',cls:'sec'},{txt:'DANFE + etiquetas',val:'dv'}]});
+  if(!op)return;imprimirEtiquetas(n,{danfe:op.includes('d'),volumes:op.includes('v'),conf:n.conferidoPor?{nome:n.conferidoPor,ms:n.conferenciaMs}:null});}
 
 $('#ver').textContent=APP_VERSAO;
 </script>
