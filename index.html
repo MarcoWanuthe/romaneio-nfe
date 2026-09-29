@@ -85,6 +85,18 @@ table.t tfoot td{font-weight:700;border-top:2px solid var(--line)}
 .toast.erro{background:var(--err)} .toast.ok{background:var(--ok)}
 #camBox{width:100%;max-width:520px;margin:0 auto}
 #print-area{display:none}
+#embInput{flex:1;min-width:240px;font-size:20px;padding:14px 16px;border:2px solid var(--ok);border-radius:10px}
+.emb-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.emb-cli{font-size:20px;font-weight:700}.emb-nf{font-size:26px;font-weight:800;color:var(--pri)}
+.emb-prog{position:relative;height:30px;background:#e9edf3;border-radius:8px;overflow:hidden;margin-bottom:12px}
+.emb-prog div{position:absolute;inset:0 auto 0 0;background:var(--ok);transition:width .25s}
+.emb-prog span{position:relative;display:block;text-align:center;line-height:30px;font-weight:700;font-size:13px}
+.emb-painel{border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center;margin-bottom:14px}
+.emb-item{font-size:24px;font-weight:800;margin:4px 0}.emb-cont{font-size:34px;font-weight:800;color:var(--pri)}
+.flash-ok{animation:fok .6s}.flash-err{animation:ferr .9s}
+@keyframes fok{0%{background:#c9f2d8;border-color:var(--ok)}100%{background:transparent}}
+@keyframes ferr{0%,40%{background:#ffd3cf;border-color:var(--err)}100%{background:transparent}}
+table.t tr.ok-row td{background:var(--ok-bg)} table.t tr.cur-row td{box-shadow:inset 0 2px 0 var(--pri),inset 0 -2px 0 var(--pri)}
 textarea{border:1px solid #cfd5df;border-radius:8px;padding:8px 10px;font:inherit;width:100%;min-height:110px;resize:vertical}
 .modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
 .modbtn{background:#fff;border:2px solid var(--line);border-radius:10px;padding:16px 14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;font:inherit;color:var(--txt)}
@@ -150,7 +162,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.2.0 (2026-09-28)";
+const APP_VERSAO = "1.3.0 (2026-09-29)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -179,7 +191,8 @@ const APP_VERSAO = "1.2.0 (2026-09-28)";
   </header>
   <div class="banner hidden" id="demoBanner">MODO DEMONSTRAÇÃO: os dados ficam só neste navegador. Configure o Firebase para uso da equipe.</div>
   <nav class="tabs">
-    <button data-tab="exp" class="on">Expedição</button>
+    <button data-tab="emb" class="on">Embalagem</button>
+    <button data-tab="exp">Expedição</button>
     <button data-tab="base">Base de XMLs</button>
     <button data-tab="hist">Histórico</button>
     <button data-tab="rel">Relatórios</button>
@@ -187,8 +200,21 @@ const APP_VERSAO = "1.2.0 (2026-09-28)";
   </nav>
 
   <main>
+    <!-- EMBALAGEM -->
+    <section id="tab-emb">
+      <div class="card">
+        <h2>Conferência de embalagem (bipe item a item)</h2>
+        <div class="scan-box">
+          <input id="embInput" type="text" autocomplete="off" placeholder="Bipe o DANFE para abrir a NF; depois bipe cada item">
+          <button class="btn sec hidden" id="embCancelar">Abandonar conferência</button>
+        </div>
+        <div class="feedback" id="embMsg"></div>
+      </div>
+      <div class="card" id="embArea"></div>
+    </section>
+
     <!-- EXPEDIÇÃO -->
-    <section id="tab-exp">
+    <section id="tab-exp" class="hidden">
       <div class="card" id="modCard"></div>
       <div class="card hidden" id="scanCard">
         <h2>Bipe a NF (código de barras do DANFE ou QR code)</h2>
@@ -310,6 +336,23 @@ const APP_VERSAO = "1.2.0 (2026-09-28)";
         <div class="row" style="margin-top:8px"><button class="btn sec" id="btnUsrPrev">Conferir lista</button></div>
         <div id="usrPrev" style="margin-top:10px"></div>
       </div>
+      <div class="card">
+        <h2>Embalagem: parâmetros</h2>
+        <div class="row" style="align-items:flex-end">
+          <label class="f">Liberar múltiplos para itens com quantidade acima de<input type="number" id="cfgLimMult" min="1" max="1000" style="width:120px"></label>
+          <label class="f">Alertar validade menor que (dias)<input type="number" id="cfgDiasVal" min="0" max="3650" style="width:120px"></label>
+          <button class="btn" id="btnParamEmb">Salvar parâmetros</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Produtos: código interno → código de barras (EAN)</h2>
+        <p class="muted small" style="margin-top:-6px">Usado quando a NF não traz o EAN. Os EANs que vierem nos XMLs importados entram aqui automaticamente. <span id="prodInfo"></span></p>
+        <p class="muted small">Cole uma linha por produto: <b>código interno; EAN; descrição</b> (pode colar 3 colunas do Excel).</p>
+        <textarea id="prodColar" placeholder="MESO001; 7891234567895; Sérum Exemplo 30 ml"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn" id="btnProdImp">Importar produtos</button>
+          <input type="text" id="prodBusca" placeholder="Buscar código, EAN ou descrição"><button class="btn sec" id="btnProdBusca">Buscar</button></div>
+        <div id="prodRes" class="tbl-wrap" style="margin-top:10px"></div>
+      </div>
     </section>
     <p class="muted small" style="text-align:center">Versão <span id="ver"></span></p>
   </main>
@@ -386,6 +429,10 @@ function parseNFe(texto,arquivo=''){
   if(transp){for(const v of transp.children){if(v.localName!=='vol')continue;temVol=true;vol+=nInt(tx(v,'qVol'));const e=tx(v,'esp');if(e&&!esp.includes(e))esp.push(e);pesoB+=parseFloat(tx(v,'pesoB')||0)||0;}}
   const cStat=tx(prot,'cStat');
   const modFrete=tx(transp,'modFrete');
+  const itens=[];const eanOf=v=>{v=onlyDig(v);return gtinValido(v)?v:'';};
+  for(const det of inf.children){if(det.localName!=='det')continue;const pr=filho(det,'prod');if(!pr)continue;
+    const lotes=[];for(const c of pr.children){if(c.localName==='rastro')lotes.push({nLote:tx(c,'nLote'),qLote:parseFloat(tx(c,'qLote')||0)||0,dFab:tx(c,'dFab'),dVal:tx(c,'dVal')});}
+    itens.push({n:+det.getAttribute('nItem')||itens.length+1,cProd:tx(pr,'cProd'),ean:eanOf(tx(pr,'cEAN'))||eanOf(tx(pr,'cEANTrib')),xProd:tx(pr,'xProd'),qCom:parseFloat(tx(pr,'qCom')||0)||0,uCom:tx(pr,'uCom'),lotes});}
   return {
     chave, numero:String(+tx(ide,'nNF')), serie:String(+tx(ide,'serie')||0), modelo:tx(ide,'mod'),
     dataEmissao:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),
@@ -393,7 +440,7 @@ function parseNFe(texto,arquivo=''){
     cliente:{nome:tx(dest,'xNome'),doc:filho(dest,'CNPJ')?.textContent||filho(dest,'CPF')?.textContent||filho(dest,'idEstrangeiro')?.textContent||'',ie:filho(dest,'IE')?.textContent||''},
     endereco:{logradouro:tx(ender,'xLgr'),numero:tx(ender,'nro'),complemento:tx(ender,'xCpl'),bairro:tx(ender,'xBairro'),municipio:tx(ender,'xMun'),uf:tx(ender,'UF'),cep:tx(ender,'CEP'),fone:tx(ender,'fone')},
     transportadora:{nome:tx(transporta,'xNome'),doc:(filho(transporta,'CNPJ')?.textContent||filho(transporta,'CPF')?.textContent||''),modFrete,modFreteDesc:MOD_FRETE[modFrete]||'',municipio:tx(transporta,'xMun'),uf:tx(transporta,'UF')},
-    volumes:vol, temVolume:temVol, especie:esp.join(', '), pesoBruto:Math.round(pesoB*1000)/1000,
+    itens, volumes:vol, temVolume:temVol, especie:esp.join(', '), pesoBruto:Math.round(pesoB*1000)/1000,
     valor:parseFloat(tx(el1(inf,'ICMSTot'),'vNF')||0)||0,
     autorizada:(cStat==='100'||cStat==='150'), protocolo:tx(prot,'nProt'), cStat,
     arquivo, importadoMs:Date.now()
@@ -415,6 +462,14 @@ function montarRomaneio(grupo,resp,numero){
 }
 
 const LocalDB={
+  async getParamEmb(){return LS.get('rnfe_param_emb',null);},
+  async salvarParamEmb(p){LS.set('rnfe_param_emb',p);},
+  async getProdutos(ids){const m=LS.get('rnfe_prods',{}),o={};ids.forEach(i=>{if(m[i])o[i]=m[i];});return o;},
+  async salvarProdutos(l){const m=LS.get('rnfe_prods',{});l.forEach(p=>m[p.cProd]={...(m[p.cProd]||{}),...p});if(!LS.set('rnfe_prods',m))throw new Error('falha ao salvar');},
+  async contarProdutos(){return Object.keys(LS.get('rnfe_prods',{})).length;},
+  async buscarProduto(q){const Q=q.toUpperCase();return Object.values(LS.get('rnfe_prods',{})).filter(p=>p.cProd.toUpperCase().includes(Q)||p.ean.includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
+  async registrarOcorrencia(o){const a=LS.get('rnfe_ocor',[]);a.push(o);LS.set('rnfe_ocor',a.slice(-5000));},
+  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;LS.set('rnfe_notas',n);}},
   async listarUsuarios(){return Object.values(LS.get('rnfe_users',{})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){return LS.get('rnfe_users',{})[em]||null;},
   async salvarUsuario(u){const m=LS.get('rnfe_users',{});m[u.email]={...(m[u.email]||{}),...u};if(!LS.set('rnfe_users',m))throw new Error('falha ao salvar neste navegador');},
@@ -423,7 +478,7 @@ const LocalDB={
   async getModalidades(){return LS.get('rnfe_mods',null);},
   async salvarModalidades(l){if(!LS.set('rnfe_mods',l))throw new Error('falha ao salvar neste navegador');},
   async importarNotas(lista){const m=LS.get('rnfe_notas',{});let novas=0,atual=0;
-    for(const n of lista){const ex=m[n.chave];if(ex){atual++;m[n.chave]={...n,importadoMs:ex.importadoMs,romaneioId:ex.romaneioId||null,romaneioNumero:ex.romaneioNumero||null};}else{novas++;m[n.chave]={...n,romaneioId:null,romaneioNumero:null};}}
+    for(const n of lista){const ex=m[n.chave];if(ex){atual++;m[n.chave]={...ex,...n,importadoMs:ex.importadoMs,romaneioId:ex.romaneioId||null,romaneioNumero:ex.romaneioNumero||null};}else{novas++;m[n.chave]={...n,romaneioId:null,romaneioNumero:null};}}
     if(!LS.set('rnfe_notas',m))throw new Error('armazenamento cheio');return {novas,atual};},
   async getNota(ch){return LS.get('rnfe_notas',{})[ch]||null;},
   async listarNotas(busca){let a=Object.values(LS.get('rnfe_notas',{})).sort((x,y)=>y.importadoMs-x.importadoMs);
@@ -443,7 +498,16 @@ const LocalDB={
 };
 
 let fdb=null,fauth=null,secApp=null;
+const docIdProd=c=>String(c).replace(/\//g,'_');
 const FireDB={
+  async getParamEmb(){const s=await fdb.collection('config').doc('embalagem').get();return s.exists?s.data():null;},
+  async salvarParamEmb(p){await fdb.collection('config').doc('embalagem').set(p,{merge:true});},
+  async getProdutos(ids){const o={};const sn=await Promise.all(ids.map(id=>fdb.collection('produtos').doc(docIdProd(id)).get()));sn.forEach(s=>{if(s.exists){const d=s.data();o[d.cProd]=d;}});return o;},
+  async salvarProdutos(l){for(let i=0;i<l.length;i+=400){const b=fdb.batch();l.slice(i,i+400).forEach(p=>b.set(fdb.collection('produtos').doc(docIdProd(p.cProd)),p,{merge:true}));await b.commit();}},
+  async contarProdutos(){const s=await fdb.collection('produtos').get();return s.size;},
+  async buscarProduto(q){const s=await fdb.collection('produtos').get();const Q=q.toUpperCase();return s.docs.map(d=>d.data()).filter(p=>String(p.cProd).toUpperCase().includes(Q)||String(p.ean).includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
+  async registrarOcorrencia(o){await fdb.collection('conf_ocorrencias').add(o);},
+  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome});await b.commit();},
   async listarUsuarios(){const q=await fdb.collection('usuarios').get();return q.docs.map(d=>d.data()).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){const s=await fdb.collection('usuarios').doc(em).get();return s.exists?s.data():null;},
   async salvarUsuario(u){await fdb.collection('usuarios').doc(u.email).set(u,{merge:true});},
@@ -501,7 +565,7 @@ function mostrarLogin(){$('#app').classList.add('hidden');$('#login').classList.
 function msgLogin(t,c='err'){const m=$('#loginMsg');m.className='feedback '+c;m.textContent=t;}
 async function entrar(u){USER=u;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#userName').textContent=u.nome+(u.email?' · '+u.email:'');
   $('#demoBanner').classList.toggle('hidden',MODO_FIREBASE);$('#tabCfgBtn').classList.toggle('hidden',!isGestor());
-  await carregarMods();carregarDraft();renderDraft();focarScan();}
+  await carregarMods();await carregarParamEmb();carregarDraft();renderDraft();renderEmb();focarScan();focarEmb();}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();
   if(!MODO_FIREBASE){const nome=$('#lNome').value.trim();if(!nome)return msgLogin('Informe seu nome.');const u={uid:'local-'+nome.toLowerCase().replace(/\W+/g,'-'),nome,email:''};LS.set('rnfe_local_user',u);return entrar(u);}
   try{msgLogin('Entrando…','warn');await fauth.signInWithEmailAndPassword($('#lEmail').value.trim(),$('#lSenha').value);}
@@ -531,8 +595,8 @@ else setTimeout(()=>{const u=LS.get('rnfe_local_user',null);u?entrar(u):mostrarL
 
 /* ================= ABAS ================= */
 $$('nav.tabs button').forEach(b=>b.onclick=()=>{$$('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b));
-  ['exp','base','hist','rel','cfg'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==b.dataset.tab));
-  if(b.dataset.tab==='exp')focarScan();if(b.dataset.tab==='base')listarBase();if(b.dataset.tab==='hist')pesquisarHist();if(b.dataset.tab==='cfg')renderCfg();});
+  ['emb','exp','base','hist','rel','cfg'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==b.dataset.tab));
+  if(b.dataset.tab==='emb')focarEmb();if(b.dataset.tab==='exp')focarScan();if(b.dataset.tab==='base')listarBase();if(b.dataset.tab==='hist')pesquisarHist();if(b.dataset.tab==='cfg')renderCfg();});
 
 /* ================= MODALIDADES DE ENVIO ================= */
 const SUPER_GESTOR='marcowanuthe.mw@gmail.com';
@@ -734,7 +798,9 @@ async function importarArquivos(files){
     }catch(e){erros.push(`${f.name}: ${e.message}`);}
   }
   let r={novas:0,atual:0};
-  if(notas.length){res.innerHTML=`<p class="muted">Gravando ${notas.length} nota(s)…</p>`;try{r=await DB.importarNotas(notas);}catch(e){erros.push('Falha ao gravar: '+e.message);}}
+  if(notas.length){res.innerHTML=`<p class="muted">Gravando ${notas.length} nota(s)…</p>`;try{r=await DB.importarNotas(notas);}catch(e){erros.push('Falha ao gravar: '+e.message);}
+    const prods={};notas.forEach(n=>(n.itens||[]).forEach(i=>{if(i.ean&&i.cProd)prods[i.cProd]={cProd:i.cProd,ean:i.ean,descricao:i.xProd,origem:'xml',atualizadoMs:Date.now()};}));
+    const lp=Object.values(prods);if(lp.length){try{await DB.salvarProdutos(lp);}catch(e){console.warn('produtos',e);}}}
   const semProt=notas.filter(n=>!n.autorizada).length;
   res.innerHTML=`<div class="feedback ${erros.length?'warn':'ok'}" style="display:block">${r.novas} nota(s) nova(s) · ${r.atual} atualizada(s)${semProt?` · ${semProt} sem protocolo de autorização`:''}${erros.length?` · ${erros.length} arquivo(s) ignorado(s)`:''}</div>
     ${erros.length?`<details style="margin-top:8px"><summary class="small">Ver arquivos ignorados</summary><ul class="small">${erros.slice(0,200).map(e=>`<li>${esc(e)}</li>`).join('')}</ul></details>`:''}`;
@@ -901,7 +967,7 @@ $('#btnCsv').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)re
 /* ================= CONFIGURAÇÕES (GESTOR) ================= */
 $('#cfgTipo').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
 function renderCfg(){
-  renderUsuarios();
+  renderUsuarios();renderCfgEmb();
   if(!isGestor()){$('#cfgList').innerHTML='<div class="empty">Apenas o gestor pode editar as modalidades.</div>';return;}
   $('#cfgList').innerHTML=`<table class="t"><thead><tr><th>Nome</th><th>Comportamento</th><th>Situação</th><th></th></tr></thead><tbody>
   ${MODS.map((m,i)=>`<tr><td><input type="text" class="cfgNome" data-i="${i}" value="${esc(m.nome)}" style="width:100%;min-width:160px"></td><td class="small">${esc(TIPOS[m.tipo]||m.tipo)}</td>
@@ -1009,6 +1075,187 @@ $('#btnUsrPrev').onclick=()=>{if(!isGestor())return;PREVIA=parseColagem($('#usrC
     <div class="row" style="margin-top:10px"><button class="btn ok" id="btnUsrCad" ${ok.length?'':'disabled'}>Cadastrar ${ok.length} usuário(s)</button>${PREVIA.length>ok.length?`<span class="muted small">${PREVIA.length-ok.length} linha(s) com problema serão ignoradas.</span>`:''}</div>`;};
 $('#usrPrev').addEventListener('click',async e=>{if(e.target.id!=='btnUsrCad'||!isGestor())return;
   const lista=PREVIA.filter(x=>!x.erro);e.target.disabled=true;await cadastrarUsuarios(lista);$('#usrColar').value='';$('#usrPrev').innerHTML='';PREVIA=[];});
+
+/* ================= EMBALAGEM: conferência item a item ================= */
+const PARAM_EMB_PADRAO={limiteMultiplos:10,diasValidade:180};
+let PARAM_EMB={...PARAM_EMB_PADRAO};
+async function carregarParamEmb(){try{const p=await DB.getParamEmb();if(p)PARAM_EMB={...PARAM_EMB_PADRAO,...p};}catch(e){console.warn('param emb',e);}}
+// GTIN: aceita 8/12/13/14 dígitos com dígito verificador válido; normaliza para 14 dígitos
+function gtinValido(c){c=onlyDig(c);if(![8,12,13,14].includes(c.length))return false;const d=c.slice(0,-1).split('').reverse();let s=0;d.forEach((x,i)=>s+=(+x)*(i%2===0?3:1));return (10-s%10)%10===+c.slice(-1);}
+function gtinNorm(c){c=onlyDig(c);return c.padStart(14,'0');}
+function normLote(l){return String(l||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function diasAte(iso){if(!iso)return null;return Math.floor((new Date(iso+'T00:00:00')-new Date(isoHoje()+'T00:00:00'))/864e5);}
+const TIPO_OCOR={produto_fora_da_nf:'Produto que não está na NF',excesso:'Quantidade acima da NF',lote_divergente:'Lote digitado não confere com a NF',abandono:'Conferência abandonada',reconferencia:'NF conferida novamente',sem_leitura:'Item confirmado sem leitura'};
+
+let EMB=null; // {nota, linhas, inicioMs, recontagens, atual, ocorr:[]}
+function embMsg(t,c){const m=$('#embMsg');m.className='feedback '+c;m.innerHTML=t;m.style.display='';}
+function embFlash(ok){const el=$('#embPainel');if(!el)return;el.classList.remove('flash-ok','flash-err');void el.offsetWidth;el.classList.add(ok?'flash-ok':'flash-err');}
+function focarEmb(){if($('#tab-emb').classList.contains('hidden'))return;if(document.querySelector('.modal-bg'))return;const a=document.activeElement;if(a&&a.classList.contains('embQtd'))return;$('#embInput').focus();}
+async function registrarOcorrencia(tipo,extra={}){
+  const o={tipo,chave:EMB?.nota?.chave||extra.chave||'',numero:EMB?.nota?.numero||extra.numero||'',operador:{uid:USER.uid,nome:USER.nome},ms:Date.now(),...extra};
+  if(EMB)EMB.ocorr.push(o);
+  try{await DB.registrarOcorrencia(o);}catch(e){console.warn('ocorrência',e);}}
+
+async function embAbrir(ch){
+  const n=await DB.getNota(ch);
+  if(!n){const k=decodificarChave(ch);bip(false);return embMsg(`NF ${esc(k.numero)} não está na base. Importe o XML na aba <b>Base de XMLs</b>.`,'err');}
+  if(!Array.isArray(n.itens)||!n.itens.length){bip(false);return embMsg(`A NF ${esc(n.numero)} foi importada antes da aba Embalagem existir e não tem os itens guardados. <b>Importe o XML dela de novo</b> na aba Base de XMLs.`,'err');}
+  if(n.conferida){const ok=await dialogo({titulo:`NF ${n.numero} já foi conferida`,html:`<p>Conferida em ${fmtDataHora(n.conferenciaMs)} por <b>${esc(n.conferidoPor||'')}</b>.</p><p>Deseja conferir de novo? A nova conferência substitui a anterior e fica registrada.</p>`,botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Conferir de novo',val:true}]});
+    if(!ok)return focarEmb();}
+  // resolve EAN: XML (cEAN/cEANTrib) -> tabela de produtos
+  const faltam=[...new Set(n.itens.filter(i=>!i.ean).map(i=>i.cProd))];let tab={};
+  if(faltam.length){try{tab=await DB.getProdutos(faltam);}catch(e){console.warn(e);}}
+  const linhas=[];
+  n.itens.forEach(it=>{const ean=it.ean||(tab[it.cProd]&&tab[it.cProd].ean)||'';const origem=it.ean?'xml':(ean?'tabela':'');
+    const lotes=it.lotes||[];const somaL=lotes.reduce((a,b)=>a+(+b.qLote||0),0);
+    if(lotes.length>1&&Math.round(somaL)===Math.round(it.qCom)){lotes.forEach((l,k)=>linhas.push({id:it.n+'.'+k,n:it.n,cProd:it.cProd,ean,origem,xProd:it.xProd,uCom:it.uCom,qtd:Math.round(+l.qLote),lido:0,lote:l.nLote||'',dVal:l.dVal||'',loteOk:false,modos:{bipe:0,multiplo:0,manual:0},just:[]}));}
+    else{const l=lotes[0]||{};linhas.push({id:String(it.n),n:it.n,cProd:it.cProd,ean,origem,xProd:it.xProd,uCom:it.uCom,qtd:Math.round(+it.qCom),lido:0,lote:l.nLote||'',dVal:l.dVal||'',loteOk:false,modos:{bipe:0,multiplo:0,manual:0},just:[]});}});
+  EMB={nota:n,linhas,inicioMs:Date.now(),recontagens:0,atual:null,ocorr:[],reconf:!!n.conferida};
+  if(n.conferida)registrarOcorrencia('reconferencia');
+  bip(true);renderEmb();
+  const semEan=linhas.filter(l=>!l.ean).length;
+  embMsg(`NF ${esc(n.numero)} aberta · ${esc(n.cliente.nome)}. Bipe os itens um a um.${semEan?` <b>${semEan} item(ns) sem código de barras cadastrado</b>: use “Sem leitura” ou cadastre o EAN em Configurações → Produtos.`:''}`,semEan?'warn':'ok');
+  focarEmb();
+}
+function embTotais(){const t=EMB.linhas.reduce((a,l)=>a+l.qtd,0),r=EMB.linhas.reduce((a,l)=>a+l.lido,0);return {t,r};}
+function renderEmb(){
+  const area=$('#embArea');
+  if(!EMB){area.innerHTML=`<div class="empty">Bipe o código de barras do DANFE (ou o QR code) para abrir a NF e começar a conferência.</div>`;$('#embCancelar').classList.add('hidden');return;}
+  $('#embCancelar').classList.remove('hidden');
+  const n=EMB.nota,{t,r}=embTotais(),pct=t?Math.round(r/t*100):0,atual=EMB.linhas.find(l=>l.id===EMB.atual);
+  const lim=PARAM_EMB.limiteMultiplos;
+  const podeMult=atual&&atual.qtd>lim&&atual.lido>=1&&atual.lido<atual.qtd;
+  area.innerHTML=`<div class="emb-head"><div><div class="muted small">Cliente</div><div class="emb-cli">${esc(n.cliente.nome)}</div><div class="small muted">${esc(fmtDoc(n.cliente.doc))} · ${esc(cidadeUf(n.endereco))}</div></div>
+    <div style="text-align:right"><div class="muted small">NF</div><div class="emb-nf">${esc(n.numero)}</div><div class="small muted">${n.volumes} volume(s) no XML · recontagens: <b>${EMB.recontagens}</b></div></div></div>
+    <div class="emb-prog"><div style="width:${pct}%"></div><span>${r} de ${t} unidades conferidas (${pct}%)</span></div>
+    <div id="embPainel" class="emb-painel">${atual?`<div class="muted small">Último item bipado</div><div class="emb-item">${esc(atual.xProd)}</div>
+      <div class="small">Cód. ${esc(atual.cProd)} · EAN ${esc(atual.ean||'—')}${atual.lote?` · lote conferido`:''}</div>
+      <div class="emb-cont">${atual.lido} / ${atual.qtd} ${esc(atual.uCom||'')}</div>
+      ${podeMult?`<div class="row" style="justify-content:center;margin-top:8px"><span class="small muted">Quantidade alta: some de uma vez →</span>
+        <button class="btn sec" data-mult="5">+5</button><button class="btn sec" data-mult="10">+10</button>
+        <input type="number" class="embQtd" min="1" max="${atual.qtd-atual.lido}" placeholder="qtd" style="width:90px"><button class="btn" data-mult="x">Somar</button>
+        <span class="small muted">(faltam ${atual.qtd-atual.lido})</span></div>`:''}`
+      :'<div class="muted">Bipe o primeiro item.</div>'}</div>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>#</th><th>Produto</th><th>EAN</th><th>Lote</th><th>Validade</th><th class="num">NF</th><th class="num">Conferido</th><th></th></tr></thead><tbody>
+    ${EMB.linhas.map(l=>{const ok=l.lido===l.qtd,d=diasAte(l.dVal),curta=d!==null&&d<PARAM_EMB.diasValidade;
+      return `<tr class="${ok?'ok-row':''} ${l.id===EMB.atual?'cur-row':''}"><td>${esc(l.n)}</td><td><b>${esc(l.xProd)}</b><div class="small muted">Cód. ${esc(l.cProd)}</div></td>
+      <td class="mono">${l.ean?esc(l.ean)+(l.origem==='tabela'?' <span class="pill">tabela</span>':''):'<span class="pill err">sem EAN</span>'}</td>
+      <td>${l.lote?(l.loteOk?'<span class="pill ok">conferido</span>':'<span class="pill">digitar da embalagem</span>'):'<span class="muted">—</span>'}</td>
+      <td>${l.dVal?`${fmtData(l.dVal)}${curta?` <span class="pill ${d<0?'err':'warn'}">${d<0?'VENCIDO':d+' dias'}</span>`:''}`:'<span class="muted">—</span>'}</td>
+      <td class="num">${l.qtd}</td><td class="num"><b>${l.lido}</b>${ok?' ✔':''}</td>
+      <td>${ok?'':`<button class="btn sec sm" data-manual="${esc(l.id)}" title="Código de barras ilegível">Sem leitura</button>`}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+async function pedirLote(linha,cands){
+  return dialogo({titulo:'Digite o lote impresso na embalagem',html:`<p><b>${esc(linha.xProd)}</b></p><p class="muted small">Digite exatamente como está na embalagem. O sistema compara com o lote da NF.</p><input type="text" id="dlgLote" style="width:100%;font-size:20px;text-transform:uppercase" autocomplete="off">`,
+    botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar lote',val:bg=>bg.querySelector('#dlgLote').value.trim()||(toast('Digite o lote.','erro'),undefined)}]});}
+async function embErroReset(tipo,detalhe){
+  bip(false);embFlash(false);EMB.recontagens++;
+  EMB.linhas.forEach(l=>{l.lido=0;l.loteOk=false;l.modos={bipe:0,multiplo:0,manual:0};l.just=[];});EMB.atual=null;
+  await registrarOcorrencia(tipo,{detalhe});renderEmb();
+  await dialogo({titulo:'Divergência: recomece a contagem da NF',html:`<p class="feedback err" style="display:block">${esc(TIPO_OCOR[tipo])}${detalhe?': '+esc(detalhe):''}</p><p>A contagem desta NF foi <b>zerada</b>. Confira os itens separados e bipe tudo novamente.</p>`,botoes:[{txt:'Recomeçar',val:true}]});
+  embMsg('Contagem zerada. Recomece bipando item por item.','warn');focarEmb();}
+// resolve em qual linha a unidade entra (considera lote); retorna linha ou null (já tratado)
+async function embLinhaPara(cands,todas){
+  const comLote=cands.filter(l=>l.lote);
+  if(!comLote.length)return cands[0];
+  const jaOk=cands.find(l=>l.loteOk);if(jaOk)return jaOk;
+  const dig=await pedirLote(cands[0]);if(!dig){focarEmb();return null;}
+  const alvo=cands.find(l=>normLote(l.lote)===normLote(dig));
+  if(alvo){alvo.loteOk=true;return alvo;}
+  if(todas.some(l=>normLote(l.lote)===normLote(dig))){await embErroReset('excesso',`${cands[0].xProd}, lote ${dig} já completo`);return null;}
+  bip(false);embFlash(false);await registrarOcorrencia('lote_divergente',{detalhe:`${cands[0].xProd}: digitado ${dig}`});
+  embMsg(`<b>Lote ${esc(dig)} não confere com a NF</b> para ${esc(cands[0].xProd)}. A unidade não foi contada. Confira a embalagem e bipe de novo.`,'err');focarEmb();return null;}
+let embOcupado=false;
+async function embScan(raw){
+  const cod=String(raw||'').trim();$('#embInput').value='';if(!cod||embOcupado)return;
+  embOcupado=true;
+  try{
+    const ch=extrairChave(cod);
+    if(ch&&chaveValida(ch)){
+      if(EMB&&EMB.nota.chave!==ch){const ok=await dialogo({titulo:'Trocar de NF?',html:`<p>A conferência da NF ${esc(EMB.nota.numero)} não foi concluída e será <b>descartada</b> (fica registrado como abandono).</p>`,botoes:[{txt:'Continuar nesta NF',val:false,cls:'sec'},{txt:'Descartar e abrir outra',val:true,cls:'danger'}]});
+        if(!ok)return focarEmb();await registrarOcorrencia('abandono');EMB=null;}
+      if(EMB&&EMB.nota.chave===ch){embMsg('Esta NF já está aberta. Bipe os itens.','warn');return;}
+      return await embAbrir(ch);}
+    if(!EMB){bip(false);return embMsg('Bipe primeiro o DANFE para abrir a NF.','err');}
+    const g=onlyDig(cod);
+    if(!gtinValido(g)){bip(false);embFlash(false);return embMsg(`Leitura “${esc(cod)}” não é um código de barras válido. Bipe de novo.`,'err');}
+    const todas=EMB.linhas.filter(l=>l.ean&&gtinNorm(l.ean)===gtinNorm(g));
+    if(!todas.length)return await embErroReset('produto_fora_da_nf',`EAN ${g}`);
+    const cands=todas.filter(l=>l.lido<l.qtd);
+    if(!cands.length)return await embErroReset('excesso',`${todas[0].xProd} (NF: ${todas.reduce((a,l)=>a+l.qtd,0)})`);
+    const linha=await embLinhaPara(cands,todas);if(!linha)return;
+    linha.lido++;linha.modos.bipe++;EMB.atual=linha.id;bip(true);embFlash(true);renderEmb();
+    embMsg(`✔ ${esc(linha.xProd)} · ${linha.lido}/${linha.qtd}`,'ok');
+    await embVerificarFim();
+  }finally{embOcupado=false;focarEmb();}
+}
+async function embSomar(q){
+  const l=EMB&&EMB.linhas.find(x=>x.id===EMB.atual);if(!l)return;
+  const falta=l.qtd-l.lido;q=Math.floor(+q||0);
+  if(!(l.qtd>PARAM_EMB.limiteMultiplos&&l.lido>=1))return toast('Múltiplos só depois de bipar 1 unidade de item com quantidade alta.','erro');
+  if(q<1)return toast('Informe a quantidade.','erro');
+  if(q>falta){bip(false);return toast(`Faltam só ${falta} unidade(s) deste item.`,'erro');}
+  l.lido+=q;l.modos.multiplo+=q;bip(true);embFlash(true);renderEmb();embMsg(`✔ +${q} ${esc(l.xProd)} · ${l.lido}/${l.qtd}`,'ok');await embVerificarFim();focarEmb();}
+async function embManual(id){
+  const l=EMB.linhas.find(x=>x.id===id);if(!l)return;const falta=l.qtd-l.lido;
+  const r=await dialogo({titulo:'Confirmar item sem leitura do código',html:`<p><b>${esc(l.xProd)}</b> · faltam ${falta}</p>
+    <label class="f">Quantidade<input type="number" id="dlgMq" min="1" max="${falta}" value="1"></label>
+    ${l.lote&&!l.loteOk?'<label class="f" style="margin-top:8px">Lote impresso na embalagem<input type="text" id="dlgMl" style="text-transform:uppercase"></label>':''}
+    <label class="f" style="margin-top:8px">Justificativa (obrigatória)<input type="text" id="dlgMj" placeholder="Ex.: código de barras rasgado"></label>`,
+    botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar',val:bg=>{const q=Math.floor(+bg.querySelector('#dlgMq').value||0),j=bg.querySelector('#dlgMj').value.trim(),lt=bg.querySelector('#dlgMl');
+      if(q<1||q>falta){toast(`Quantidade entre 1 e ${falta}.`,'erro');return undefined;}if(j.length<5){toast('Escreva a justificativa.','erro');return undefined;}
+      if(lt&&!lt.value.trim()){toast('Digite o lote.','erro');return undefined;}return {q,j,lote:lt?lt.value.trim():null};}}]});
+  if(!r)return focarEmb();
+  if(r.lote!==null&&normLote(r.lote)!==normLote(l.lote)){bip(false);await registrarOcorrencia('lote_divergente',{detalhe:`${l.xProd}: digitado ${r.lote} (sem leitura)`});return embMsg(`<b>Lote ${esc(r.lote)} não confere com a NF.</b> Nada foi contado.`,'err');}
+  if(r.lote!==null)l.loteOk=true;
+  l.lido+=r.q;l.modos.manual+=r.q;l.just.push(r.j);EMB.atual=l.id;
+  await registrarOcorrencia('sem_leitura',{detalhe:`${l.xProd} × ${r.q}: ${r.j}`});
+  bip(true);renderEmb();await embVerificarFim();focarEmb();}
+async function embVerificarFim(){
+  const {t,r}=embTotais();if(r<t)return;
+  const n=EMB.nota,fim=Date.now();
+  const conf={chave:n.chave,numero:n.numero,serie:n.serie,cliente:{nome:n.cliente.nome,doc:n.cliente.doc},volumes:n.volumes,
+    operador:{uid:USER.uid,nome:USER.nome},inicioMs:EMB.inicioMs,fimMs:fim,duracaoS:Math.round((fim-EMB.inicioMs)/1000),recontagens:EMB.recontagens,
+    unidades:t,reconferencia:EMB.reconf,
+    itens:EMB.linhas.map(l=>({n:l.n,cProd:l.cProd,ean:l.ean,origemEan:l.origem,xProd:l.xProd,qtd:l.qtd,lote:l.lote,dVal:l.dVal,modos:l.modos,justificativas:l.just})),
+    ocorrencias:EMB.ocorr.map(o=>({tipo:o.tipo,detalhe:o.detalhe||'',ms:o.ms})),status:'conferida'};
+  try{await DB.salvarConferencia(conf);}
+  catch(e){bip(false);return embMsg('Não foi possível salvar a conferência: '+esc(e.message)+'. Tente bipar o último item de novo.','err');}
+  EMB=null;renderEmb();
+  const mm=Math.floor(conf.duracaoS/60),ss=String(conf.duracaoS%60).padStart(2,'0');
+  embMsg(`✔ <b>NF ${esc(n.numero)} conferida</b> · ${t} unidade(s) · ${mm}:${ss} min · ${conf.recontagens} recontagem(ns). Bipe o próximo DANFE.`,'ok');
+  await dialogo({titulo:`NF ${n.numero} conferida ✔`,html:`<p><b>${esc(n.cliente.nome)}</b></p><p>${t} unidade(s) conferida(s) em ${mm}:${ss} min.</p><p>Volumes no XML: <b>${n.volumes}</b>. Pode fechar e identificar as caixas.</p><p class="muted small">A impressão automática de etiquetas de volume e do DANFE entra na próxima etapa.</p>`,botoes:[{txt:'OK',val:true}]});}
+$('#embInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();embScan(e.target.value);}});
+$('#embArea').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||!EMB)return;
+  if(b.dataset.mult){const v=b.dataset.mult==='x'?$('#embArea .embQtd').value:b.dataset.mult;return embSomar(v);}
+  if(b.dataset.manual)return embManual(b.dataset.manual);});
+$('#embArea').addEventListener('keydown',e=>{if(e.target.classList.contains('embQtd')&&e.key==='Enter'){e.preventDefault();embSomar(e.target.value);}});
+$('#embCancelar').onclick=async()=>{if(!EMB)return;const ok=await dialogo({titulo:'Abandonar esta conferência?',html:'<p>Nada é gravado como conferido e o abandono fica registrado.</p>',botoes:[{txt:'Voltar',val:false,cls:'sec'},{txt:'Abandonar',val:true,cls:'danger'}]});
+  if(ok){await registrarOcorrencia('abandono');EMB=null;renderEmb();embMsg('Conferência abandonada.','warn');}focarEmb();};
+document.addEventListener('click',e=>{if(!$('#tab-emb').classList.contains('hidden')&&!e.target.closest('input,select,button,textarea,a,.modal-bg'))setTimeout(focarEmb,50);});
+window.addEventListener('beforeunload',e=>{if(EMB){e.preventDefault();e.returnValue='';}});
+
+/* ================= CONFIGURAÇÕES: parâmetros e produtos ================= */
+function renderCfgEmb(){if(!isGestor())return;$('#cfgLimMult').value=PARAM_EMB.limiteMultiplos;$('#cfgDiasVal').value=PARAM_EMB.diasValidade;contarProdutos();}
+async function contarProdutos(){try{const n=await DB.contarProdutos();$('#prodInfo').textContent=`${n} produto(s) com código de barras cadastrado.`;}catch(e){$('#prodInfo').textContent='';}}
+$('#btnParamEmb').onclick=async()=>{if(!isGestor())return;const lim=Math.floor(+$('#cfgLimMult').value),dias=Math.floor(+$('#cfgDiasVal').value);
+  if(!(lim>=1&&lim<=1000))return toast('Limite de múltiplos entre 1 e 1000.','erro');if(!(dias>=0&&dias<=3650))return toast('Dias de validade entre 0 e 3650.','erro');
+  try{await DB.salvarParamEmb({limiteMultiplos:lim,diasValidade:dias});PARAM_EMB={limiteMultiplos:lim,diasValidade:dias};toast('Parâmetros salvos.','ok');}catch(e){toast('Erro: '+traduzErro(e),'erro');}};
+function parseProdutos(txt){const vistos=new Set();
+  return txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map((l,i)=>{let p=l.split(/\t|;/);if(p.length<2)p=l.split(',');p=p.map(x=>x.trim());
+    if(i===0&&!p.some(x=>gtinValido(x))&&/c[oó]d|ean|gtin/i.test(l))return null;
+    const cProd=p[0]||'',ean=onlyDig(p[1]||''),desc=p.slice(2).join(' ').trim();let erro='';
+    if(!cProd)erro='sem código';else if(!gtinValido(ean))erro='EAN inválido';else if(vistos.has(cProd))erro='código repetido';
+    vistos.add(cProd);return {linha:i+1,cProd,ean,descricao:desc,erro};}).filter(Boolean);}
+$('#btnProdImp').onclick=async()=>{if(!isGestor())return;const lista=parseProdutos($('#prodColar').value);if(!lista.length)return toast('Cole uma linha por produto.','erro');
+  const ok=lista.filter(x=>!x.erro),er=lista.filter(x=>x.erro);
+  const c=await dialogo({titulo:'Importar produtos',html:`<p><b>${ok.length}</b> produto(s) válidos${er.length?`, <b>${er.length}</b> com problema (serão ignorados)`:''}.</p>${er.length?`<ul class="small">${er.slice(0,30).map(x=>`<li>Linha ${x.linha}: ${esc(x.cProd||'—')} → ${esc(x.erro)}</li>`).join('')}</ul>`:''}`,botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:`Importar ${ok.length}`,val:true,cls:'ok'}]});
+  if(!c||!ok.length)return;
+  try{await DB.salvarProdutos(ok.map(x=>({cProd:x.cProd,ean:x.ean,descricao:x.descricao,origem:'manual',atualizadoMs:Date.now(),atualizadoPor:USER.nome})));toast(`${ok.length} produto(s) importado(s).`,'ok');$('#prodColar').value='';contarProdutos();}
+  catch(e){toast('Erro: '+traduzErro(e),'erro');}};
+$('#btnProdBusca').onclick=async()=>{const q=$('#prodBusca').value.trim();if(!q)return;const area=$('#prodRes');
+  try{const r=await DB.buscarProduto(q);area.innerHTML=r.length?`<table class="t"><thead><tr><th>Código</th><th>EAN</th><th>Descrição</th><th>Origem</th></tr></thead><tbody>${r.map(p=>`<tr><td>${esc(p.cProd)}</td><td class="mono">${esc(p.ean)}</td><td>${esc(p.descricao||'')}</td><td>${esc(p.origem||'')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">Nenhum produto encontrado.</p>';}
+  catch(e){area.innerHTML=`<p class="feedback err" style="display:block">${esc(traduzErro(e))}</p>`;}};
 
 $('#ver').textContent=APP_VERSAO;
 </script>
