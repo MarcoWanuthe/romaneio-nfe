@@ -180,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.4.0 (2026-09-29)";
+const APP_VERSAO = "1.5.0 (2026-09-29)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -307,9 +307,10 @@ const APP_VERSAO = "1.4.0 (2026-09-29)";
     <section id="tab-rel" class="hidden">
       <div class="card">
         <div class="row" style="align-items:flex-end">
+          <label class="f">Relatório de<select id="rTipo"><option value="exp">Expedição (romaneios)</option><option value="emb">Qualidade da embalagem</option></select></label>
           <label class="f">De<input type="date" id="rDe"></label>
           <label class="f">Até<input type="date" id="rAte"></label>
-          <label class="f">Modalidade<select id="rMod"><option value="">Todas</option></select></label>
+          <label class="f" id="rModWrap">Modalidade<select id="rMod"><option value="">Todas</option></select></label>
           <button class="btn" id="btnRel">Gerar relatório</button>
           <button class="btn sec" id="btnCsv">Exportar CSV (detalhado)</button>
           <button class="btn sec" id="btnRelPrint">Imprimir / PDF</button>
@@ -481,6 +482,9 @@ function montarRomaneio(grupo,resp,numero){
 }
 
 const LocalDB={
+  async listarConferencias(a,b){return Object.values(LS.get('rnfe_confs',{})).filter(c=>c.fimMs>=a&&c.fimMs<=b);},
+  async listarOcorrencias(a,b){return LS.get('rnfe_ocor',[]).filter(o=>o.ms>=a&&o.ms<=b);},
+  async mapaProdutos(){const m={};Object.values(LS.get('rnfe_prods',{})).forEach(p=>{if(p.ean)m[gtinNorm(p.ean)]=p;});return m;},
   async getParamEmb(){return LS.get('rnfe_param_emb',null);},
   async salvarParamEmb(p){LS.set('rnfe_param_emb',p);},
   async getProdutos(ids){const m=LS.get('rnfe_prods',{}),o={};ids.forEach(i=>{if(m[i])o[i]=m[i];});return o;},
@@ -488,7 +492,7 @@ const LocalDB={
   async contarProdutos(){return Object.keys(LS.get('rnfe_prods',{})).length;},
   async buscarProduto(q){const Q=q.toUpperCase();return Object.values(LS.get('rnfe_prods',{})).filter(p=>p.cProd.toUpperCase().includes(Q)||p.ean.includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
   async registrarOcorrencia(o){const a=LS.get('rnfe_ocor',[]);a.push(o);LS.set('rnfe_ocor',a.slice(-5000));},
-  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;n[c.chave].volumesEtiq=c.volumesEtiq;LS.set('rnfe_notas',n);}},
+  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave+'_'+c.fimMs]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;n[c.chave].volumesEtiq=c.volumesEtiq;LS.set('rnfe_notas',n);}},
   async listarUsuarios(){return Object.values(LS.get('rnfe_users',{})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){return LS.get('rnfe_users',{})[em]||null;},
   async salvarUsuario(u){const m=LS.get('rnfe_users',{});m[u.email]={...(m[u.email]||{}),...u};if(!LS.set('rnfe_users',m))throw new Error('falha ao salvar neste navegador');},
@@ -519,6 +523,9 @@ const LocalDB={
 let fdb=null,fauth=null,secApp=null;
 const docIdProd=c=>String(c).replace(/\//g,'_');
 const FireDB={
+  async listarConferencias(a,b){const q=await fdb.collection('conferencias').where('fimMs','>=',a).where('fimMs','<=',b).orderBy('fimMs','desc').limit(5000).get();return q.docs.map(d=>d.data());},
+  async listarOcorrencias(a,b){const q=await fdb.collection('conf_ocorrencias').where('ms','>=',a).where('ms','<=',b).orderBy('ms','desc').limit(10000).get();return q.docs.map(d=>d.data());},
+  async mapaProdutos(){const s=await fdb.collection('produtos').get();const m={};s.docs.forEach(d=>{const p=d.data();if(p.ean)m[gtinNorm(p.ean)]=p;});return m;},
   async getParamEmb(){const s=await fdb.collection('config').doc('embalagem').get();return s.exists?s.data():null;},
   async salvarParamEmb(p){await fdb.collection('config').doc('embalagem').set(p,{merge:true});},
   async getProdutos(ids){const o={};const sn=await Promise.all(ids.map(id=>fdb.collection('produtos').doc(docIdProd(id)).get()));sn.forEach(s=>{if(s.exists){const d=s.data();o[d.cProd]=d;}});return o;},
@@ -526,7 +533,7 @@ const FireDB={
   async contarProdutos(){const s=await fdb.collection('produtos').get();return s.size;},
   async buscarProduto(q){const s=await fdb.collection('produtos').get();const Q=q.toUpperCase();return s.docs.map(d=>d.data()).filter(p=>String(p.cProd).toUpperCase().includes(Q)||String(p.ean).includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
   async registrarOcorrencia(o){await fdb.collection('conf_ocorrencias').add(o);},
-  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome,volumesEtiq:c.volumesEtiq});await b.commit();},
+  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave+'_'+c.fimMs),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome,volumesEtiq:c.volumesEtiq});await b.commit();},
   async listarUsuarios(){const q=await fdb.collection('usuarios').get();return q.docs.map(d=>d.data()).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){const s=await fdb.collection('usuarios').doc(em).get();return s.exists?s.data():null;},
   async salvarUsuario(u){await fdb.collection('usuarios').doc(u.email).set(u,{merge:true});},
@@ -955,6 +962,7 @@ function imprimirRomaneios(rs){imprimirHtml(rs.map(htmlRomaneio).join(''),rs.len
 /* ================= RELATÓRIOS ================= */
 let REL=[];
 async function gerarRel(){
+  if(tipoRel()==='emb')return gerarRelEmb();
   const de=$('#rDe').value,ate=$('#rAte').value;if(!de||!ate)return toast('Informe o período.','erro');
   const area=$('#relArea');area.innerHTML='<div class="card muted">Carregando…</div>';
   try{REL=filtraMod(await DB.listarRomaneios(...rangeMs(de,ate)),'#rMod');area.innerHTML=htmlRelatorio(REL,de,ate,false);}
@@ -992,8 +1000,8 @@ function htmlRelatorio(rs,de,ate,print){
     <div class="card"><h2>Divergências de volume</h2><div class="tbl-wrap">${blocoDiv}</div></div>`;
 }
 $('#btnRel').onclick=gerarRel;
-$('#btnRelPrint').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)return;imprimirHtml(htmlRelatorio(REL,$('#rDe').value,$('#rAte').value,true),`Relatorio expedicao ${$('#rDe').value} a ${$('#rAte').value}`);};
-$('#btnCsv').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)return toast('Nada para exportar.','erro');
+$('#btnRelPrint').onclick=async()=>{if(tipoRel()==='emb'){if(!RELEMB)await gerarRelEmb();if(!RELEMB)return;return imprimirHtml(htmlRelEmb(true),`Qualidade embalagem ${$('#rDe').value} a ${$('#rAte').value}`);}if(!REL.length)await gerarRel();if(!REL.length)return;imprimirHtml(htmlRelatorio(REL,$('#rDe').value,$('#rAte').value,true),`Relatorio expedicao ${$('#rDe').value} a ${$('#rAte').value}`);};
+$('#btnCsv').onclick=async()=>{if(tipoRel()==='emb')return csvEmb();if(!REL.length)await gerarRel();if(!REL.length)return toast('Nada para exportar.','erro');
   const cab=['Romaneio','Data/hora','Status','Modalidade','Evento','Transportadora/destino','CNPJ transportadora','Responsavel','NF','Serie','Emissao','Cliente','CNPJ/CPF cliente','Endereco','Cidade','UF','CEP','Codigo de postagem','Vol XML','Vol conferido','Diferenca','Alerta modalidade','Chave de acesso'];
   const q=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   const linhas=[cab.join(';')];
@@ -1184,10 +1192,10 @@ function renderEmb(){
 async function pedirLote(linha,cands){
   return dialogo({titulo:'Digite o lote impresso na embalagem',html:`<p><b>${esc(linha.xProd)}</b></p><p class="muted small">Digite exatamente como está na embalagem. O sistema compara com o lote da NF.</p><input type="text" id="dlgLote" style="width:100%;font-size:20px;text-transform:uppercase" autocomplete="off">`,
     botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar lote',val:bg=>bg.querySelector('#dlgLote').value.trim()||(toast('Digite o lote.','erro'),undefined)}]});}
-async function embErroReset(tipo,detalhe){
+async function embErroReset(tipo,detalhe,extra={}){
   bip(false);embFlash(false);EMB.recontagens++;
   EMB.linhas.forEach(l=>{l.lido=0;l.loteOk=false;l.modos={bipe:0,multiplo:0,manual:0};l.just=[];});EMB.atual=null;
-  await registrarOcorrencia(tipo,{detalhe});renderEmb();
+  await registrarOcorrencia(tipo,{detalhe,...extra});renderEmb();
   await dialogo({titulo:'Divergência: recomece a contagem da NF',html:`<p class="feedback err" style="display:block">${esc(TIPO_OCOR[tipo])}${detalhe?': '+esc(detalhe):''}</p><p>A contagem desta NF foi <b>zerada</b>. Confira os itens separados e bipe tudo novamente.</p>`,botoes:[{txt:'Recomeçar',val:true}]});
   embMsg('Contagem zerada. Recomece bipando item por item.','warn');focarEmb();}
 // resolve em qual linha a unidade entra (considera lote); retorna linha ou null (já tratado)
@@ -1198,8 +1206,8 @@ async function embLinhaPara(cands,todas){
   const dig=await pedirLote(cands[0]);if(!dig){focarEmb();return null;}
   const alvo=cands.find(l=>normLote(l.lote)===normLote(dig));
   if(alvo){alvo.loteOk=true;return alvo;}
-  if(todas.some(l=>normLote(l.lote)===normLote(dig))){await embErroReset('excesso',`${cands[0].xProd}, lote ${dig} já completo`);return null;}
-  bip(false);embFlash(false);await registrarOcorrencia('lote_divergente',{detalhe:`${cands[0].xProd}: digitado ${dig}`});
+  if(todas.some(l=>normLote(l.lote)===normLote(dig))){await embErroReset('excesso',`${cands[0].xProd}, lote ${dig} já completo`,{ean:cands[0].ean,xProd:cands[0].xProd,cProd:cands[0].cProd});return null;}
+  bip(false);embFlash(false);await registrarOcorrencia('lote_divergente',{detalhe:`${cands[0].xProd}: digitado ${dig}`,ean:cands[0].ean,xProd:cands[0].xProd,cProd:cands[0].cProd});
   embMsg(`<b>Lote ${esc(dig)} não confere com a NF</b> para ${esc(cands[0].xProd)}. A unidade não foi contada. Confira a embalagem e bipe de novo.`,'err');focarEmb();return null;}
 let embOcupado=false;
 async function embScan(raw){
@@ -1216,9 +1224,9 @@ async function embScan(raw){
     const g=onlyDig(cod);
     if(!gtinValido(g)){bip(false);embFlash(false);return embMsg(`Leitura “${esc(cod)}” não é um código de barras válido. Bipe de novo.`,'err');}
     const todas=EMB.linhas.filter(l=>l.ean&&gtinNorm(l.ean)===gtinNorm(g));
-    if(!todas.length)return await embErroReset('produto_fora_da_nf',`EAN ${g}`);
+    if(!todas.length)return await embErroReset('produto_fora_da_nf',`EAN ${g}`,{ean:g});
     const cands=todas.filter(l=>l.lido<l.qtd);
-    if(!cands.length)return await embErroReset('excesso',`${todas[0].xProd} (NF: ${todas.reduce((a,l)=>a+l.qtd,0)})`);
+    if(!cands.length)return await embErroReset('excesso',`${todas[0].xProd} (NF: ${todas.reduce((a,l)=>a+l.qtd,0)})`,{ean:todas[0].ean,xProd:todas[0].xProd,cProd:todas[0].cProd});
     const linha=await embLinhaPara(cands,todas);if(!linha)return;
     linha.lido++;linha.modos.bipe++;EMB.atual=linha.id;bip(true);embFlash(true);renderEmb();
     embMsg(`✔ ${esc(linha.xProd)} · ${linha.lido}/${linha.qtd}`,'ok');
@@ -1242,10 +1250,10 @@ async function embManual(id){
       if(q<1||q>falta){toast(`Quantidade entre 1 e ${falta}.`,'erro');return undefined;}if(j.length<5){toast('Escreva a justificativa.','erro');return undefined;}
       if(lt&&!lt.value.trim()){toast('Digite o lote.','erro');return undefined;}return {q,j,lote:lt?lt.value.trim():null};}}]});
   if(!r)return focarEmb();
-  if(r.lote!==null&&normLote(r.lote)!==normLote(l.lote)){bip(false);await registrarOcorrencia('lote_divergente',{detalhe:`${l.xProd}: digitado ${r.lote} (sem leitura)`});return embMsg(`<b>Lote ${esc(r.lote)} não confere com a NF.</b> Nada foi contado.`,'err');}
+  if(r.lote!==null&&normLote(r.lote)!==normLote(l.lote)){bip(false);await registrarOcorrencia('lote_divergente',{detalhe:`${l.xProd}: digitado ${r.lote} (sem leitura)`,ean:l.ean,xProd:l.xProd,cProd:l.cProd});return embMsg(`<b>Lote ${esc(r.lote)} não confere com a NF.</b> Nada foi contado.`,'err');}
   if(r.lote!==null)l.loteOk=true;
   l.lido+=r.q;l.modos.manual+=r.q;l.just.push(r.j);EMB.atual=l.id;
-  await registrarOcorrencia('sem_leitura',{detalhe:`${l.xProd} × ${r.q}: ${r.j}`});
+  await registrarOcorrencia('sem_leitura',{detalhe:`${l.xProd} × ${r.q}: ${r.j}`,ean:l.ean,xProd:l.xProd,cProd:l.cProd,qtd:r.q});
   bip(true);renderEmb();await embVerificarFim();focarEmb();}
 async function embVerificarFim(){
   const {t,r}=embTotais();if(r<t)return;
@@ -1328,7 +1336,6 @@ function htmlDanfeEtiqueta(n){
     <div class="d-lbl">PROTOCOLO DE AUTORIZAÇÃO</div><div>${esc(n.protocolo||'—')}${n.dhRecbto?' · '+esc(fmtDataHoraIso(n.dhRecbto)):''}</div>
     <div class="d-box"><div class="d-lbl">EMITENTE</div><b>${esc(em.nome||'')}</b><br>CNPJ/CPF ${esc(fmtDoc(em.doc))} · IE ${esc(em.ie||'—')} · UF ${esc(em.uf||(em.endereco&&em.endereco.uf)||'—')}</div>
     <div class="d-box"><div class="d-lbl">DESTINATÁRIO</div><b>${esc(n.cliente.nome)}</b><br>CNPJ/CPF ${esc(fmtDoc(n.cliente.doc))} · IE ${esc(n.cliente.ie||'—')} · UF ${esc(de.uf||'—')}</div>
-    <div class="d-row"><div>VALOR TOTAL DA NF-e</div><div class="d-val">R$ ${(+n.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
     <div class="d-small">Consulte a autenticidade no portal nacional da NF-e: www.nfe.fazenda.gov.br/portal ou no site da SEFAZ autorizadora.</div>
   </div>`;}
 function htmlEtiquetaVolume(n,v,t,conf){
@@ -1354,6 +1361,85 @@ async function reimprimirEtiquetas(chave){
   const n=await DB.getNota(chave);if(!n)return toast('NF não encontrada.','erro');
   const op=await dialogo({titulo:`Reimprimir · NF ${n.numero}`,html:`<p>${esc(n.cliente.nome)} · ${volsEsperados(n)} volume(s)</p>`,botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Só DANFE',val:'d',cls:'sec'},{txt:'Só etiquetas de volume',val:'v',cls:'sec'},{txt:'DANFE + etiquetas',val:'dv'}]});
   if(!op)return;imprimirEtiquetas(n,{danfe:op.includes('d'),volumes:op.includes('v'),conf:n.conferidoPor?{nome:n.conferidoPor,ms:n.conferenciaMs}:null});}
+
+/* ================= RELATÓRIO DE QUALIDADE DA EMBALAGEM ================= */
+const ERR_TIPOS=['produto_fora_da_nf','excesso','lote_divergente'];
+const ROT_ERR={produto_fora_da_nf:'Bipado fora da NF',excesso:'Excesso',lote_divergente:'Lote divergente',sem_leitura:'Sem leitura'};
+let RELEMB=null;
+function fmtDur(s){s=Math.round(s||0);const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,'0')}`;}
+function pct(x){return (x*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';}
+function mediana(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function tipoRel(){return $('#rTipo').value;}
+function produtoDaOcorrencia(o,prods){
+  let ean=o.ean||'',nome=o.xProd||'';
+  if(!ean){const m=String(o.detalhe||'').match(/\b(\d{8,14})\b/);if(m&&o.tipo==='produto_fora_da_nf')ean=m[1];}
+  if(!nome&&ean){const p=prods[gtinNorm(ean)];if(p)nome=p.descricao||p.cProd;}
+  if(!nome&&o.detalhe&&o.tipo!=='produto_fora_da_nf')nome=String(o.detalhe).split(/:| \(|, lote| ×/)[0].trim();
+  return {chave:ean?gtinNorm(ean):('N:'+nome.toUpperCase()),ean,nome:nome||(ean?`EAN ${ean} (não cadastrado)`:'—')};}
+function agregaEmb({confs,ocs,prods}){
+  const nfs=confs.length,primeira=c=>c.recontagens===0&&!(c.ocorrencias||[]).some(o=>o.tipo==='lote_divergente');
+  const nPrim=confs.filter(primeira).length,durs=confs.map(c=>+c.duracaoS||0);
+  const un=confs.reduce((a,c)=>a+(+c.unidades||0),0),rec=confs.reduce((a,c)=>a+(+c.recontagens||0),0);
+  const porTipo={};ocs.forEach(o=>porTipo[o.tipo]=(porTipo[o.tipo]||0)+1);
+  const erros=ocs.filter(o=>ERR_TIPOS.includes(o.tipo));
+  const op=new Map();const opOf=nome=>{if(!op.has(nome))op.set(nome,{nome,nfs:0,prim:0,un:0,dur:0,rec:0,erros:0,semLeitura:0,abandonos:0});return op.get(nome);};
+  confs.forEach(c=>{const o=opOf(c.operador?.nome||'—');o.nfs++;o.un+=+c.unidades||0;o.dur+=+c.duracaoS||0;o.rec+=+c.recontagens||0;if(primeira(c))o.prim++;});
+  ocs.forEach(x=>{const o=opOf(x.operador?.nome||'—');if(ERR_TIPOS.includes(x.tipo))o.erros++;if(x.tipo==='sem_leitura')o.semLeitura++;if(x.tipo==='abandono')o.abandonos++;});
+  const pr=new Map();
+  ocs.filter(o=>ERR_TIPOS.includes(o.tipo)||o.tipo==='sem_leitura').forEach(o=>{const p=produtoDaOcorrencia(o,prods);
+    if(!pr.has(p.chave))pr.set(p.chave,{nome:p.nome,ean:p.ean,produto_fora_da_nf:0,excesso:0,lote_divergente:0,sem_leitura:0,total:0});
+    const r=pr.get(p.chave);r[o.tipo]++;if(ERR_TIPOS.includes(o.tipo))r.total++;});
+  return {nfs,nPrim,acur:nfs?nPrim/nfs:0,media:durs.length?durs.reduce((a,b)=>a+b,0)/durs.length:0,med:mediana(durs),un,rec,porTipo,
+    errosPor100:nfs?erros.length/nfs*100:0,nErros:erros.length,
+    porOp:[...op.values()].sort((a,b)=>b.nfs-a.nfs),
+    porProd:[...pr.values()].sort((a,b)=>b.total-a.total||b.sem_leitura-a.sem_leitura),
+    recentes:[...ocs].sort((a,b)=>b.ms-a.ms).slice(0,40)};}
+async function gerarRelEmb(){
+  const de=$('#rDe').value,ate=$('#rAte').value;if(!de||!ate)return toast('Informe o período.','erro');
+  const area=$('#relArea');area.innerHTML='<div class="card muted">Carregando…</div>';
+  try{const [a,b]=rangeMs(de,ate);const [confs,ocs,prods]=await Promise.all([DB.listarConferencias(a,b),DB.listarOcorrencias(a,b),DB.mapaProdutos()]);
+    RELEMB={confs,ocs,prods,de,ate};area.innerHTML=htmlRelEmb(false);}
+  catch(e){area.innerHTML=`<div class="card feedback err" style="display:block">Erro: ${esc(traduzErro(e))}</div>`;}}
+function htmlRelEmb(print){
+  const R=RELEMB,A=agregaEmb(R),tbl=print?'':'t';
+  if(!print&&!R.confs.length&&!R.ocs.length)return '<div class="card empty">Nenhuma conferência de embalagem no período.</div>';
+  const cor=A.acur>=0.98?'var(--ok)':A.acur>=0.9?'var(--warn)':'var(--err)';
+  const kpis=`<div class="stats"><div class="stat"><b>${A.nfs}</b><span>NFs conferidas</span></div>
+    <div class="stat"><b style="color:${cor}">${pct(A.acur)}</b><span>Acuracidade (NF certa na 1ª contagem)</span></div>
+    <div class="stat"><b>${fmtDur(A.media)}</b><span>Tempo médio por NF (mediana ${fmtDur(A.med)})</span></div>
+    <div class="stat"><b>${A.un.toLocaleString('pt-BR')}</b><span>Unidades conferidas</span></div>
+    <div class="stat"><b style="color:${A.nErros?'var(--err)':'inherit'}">${A.nErros}</b><span>Erros barrados (${A.errosPor100.toLocaleString('pt-BR',{maximumFractionDigits:1})} a cada 100 NFs)</span></div>
+    <div class="stat"><b>${A.rec}</b><span>Recontagens de NF</span></div>
+    <div class="stat"><b>${A.porTipo.sem_leitura||0}</b><span>Itens sem leitura</span></div>
+    <div class="stat"><b>${A.porTipo.abandono||0}</b><span>Conferências abandonadas</span></div></div>`;
+  const tipos=`<table class="${tbl}"><thead><tr><th>Tipo de ocorrência</th><th class="num">Qtde</th></tr></thead><tbody>
+    ${Object.keys(TIPO_OCOR).map(k=>`<tr><td>${esc(TIPO_OCOR[k])}</td><td class="num n">${A.porTipo[k]||0}</td></tr>`).join('')}</tbody></table>`;
+  const ops=`<table class="${tbl}"><thead><tr><th>Operador</th><th class="num">NFs</th><th class="num">Unidades</th><th class="num">Tempo médio</th><th class="num">Acuracidade</th><th class="num">Erros barrados</th><th class="num">Recontagens</th><th class="num">Sem leitura</th><th class="num">Abandonos</th></tr></thead><tbody>
+    ${A.porOp.map(o=>`<tr><td>${esc(o.nome)}</td><td class="num n">${o.nfs}</td><td class="num n">${o.un}</td><td class="num n">${o.nfs?fmtDur(o.dur/o.nfs):'—'}</td><td class="num n">${o.nfs?pct(o.prim/o.nfs):'—'}</td><td class="num n">${o.erros}</td><td class="num n">${o.rec}</td><td class="num n">${o.semLeitura}</td><td class="num n">${o.abandonos}</td></tr>`).join('')||'<tr><td colspan="9">—</td></tr>'}</tbody></table>`;
+  const prods=A.porProd.length?`<table class="${tbl}"><thead><tr><th>Produto</th><th>EAN</th><th class="num">Bipado fora da NF</th><th class="num">Excesso</th><th class="num">Lote divergente</th><th class="num">Total de erros</th><th class="num">Sem leitura</th></tr></thead><tbody>
+    ${A.porProd.slice(0,50).map(p=>`<tr><td>${esc(p.nome)}</td><td class="mono">${esc(p.ean||'—')}</td><td class="num n">${p.produto_fora_da_nf}</td><td class="num n">${p.excesso}</td><td class="num n">${p.lote_divergente}</td><td class="num n"><b>${p.total}</b></td><td class="num n">${p.sem_leitura}</td></tr>`).join('')}</tbody></table>`:'<p>Nenhum erro por produto no período.</p>';
+  const rec=A.recentes.length?`<table class="${tbl}"><thead><tr><th>Data/hora</th><th>NF</th><th>Operador</th><th>Ocorrência</th><th>Detalhe</th></tr></thead><tbody>
+    ${A.recentes.map(o=>`<tr><td>${fmtDataHora(o.ms)}</td><td>${esc(o.numero||'')}</td><td>${esc(o.operador?.nome||'')}</td><td>${esc(TIPO_OCOR[o.tipo]||o.tipo)}</td><td>${esc(o.detalhe||'')}</td></tr>`).join('')}</tbody></table>`:'<p>Nenhuma ocorrência no período.</p>';
+  const resumo=`Período: <b>${fmtData(R.de)} a ${fmtData(R.ate)}</b> · ${A.nfs} NF(s) conferida(s) · acuracidade ${pct(A.acur)} · ${A.nErros} erro(s) barrado(s) antes do envio`;
+  const nota='<p class="muted small">Acuracidade = NFs concluídas sem nenhuma recontagem e sem lote divergente. “Erros barrados” são produtos errados, excessos e lotes divergentes detectados pelo bipe, ou seja, erros que teriam ido para o cliente.</p>';
+  if(print)return `<div class="rp"><div class="h"><div class="tit">RELATÓRIO DE QUALIDADE DA EMBALAGEM</div><div style="text-align:right">Emitido em ${fmtDataHora(Date.now())}<br>por ${esc(USER.nome)}</div></div>
+    <p>${resumo}</p>${kpis.replace(/class="stats"/,'style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"').replace(/class="stat"/g,'style="border:1px solid #000;padding:4px"')}${nota}
+    <h4>Por operador</h4>${ops}<h4>Erros por produto</h4>${prods}<h4>Ocorrências por tipo</h4>${tipos}<h4>Ocorrências recentes</h4>${rec}</div>`;
+  return `<div class="card"><p style="margin:0 0 12px">${resumo}</p>${kpis}${nota}</div>
+    <div class="card"><h2>Por operador</h2><div class="tbl-wrap">${ops}</div></div>
+    <div class="card"><h2>Erros por produto</h2><p class="muted small" style="margin-top:-6px">Os produtos que mais geram troca aparecem primeiro. Vale revisar a separação e a identificação deles na prateleira.</p><div class="tbl-wrap">${prods}</div></div>
+    <div class="card"><h2>Ocorrências por tipo</h2><div class="tbl-wrap">${tipos}</div></div>
+    <div class="card"><h2>Ocorrências recentes</h2><div class="tbl-wrap">${rec}</div></div>`;}
+function csvDownload(nome,cab,linhas){const q=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const blob=new Blob(['﻿'+[cab,...linhas].map(l=>l.map(q).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+async function csvEmb(){if(!RELEMB)await gerarRelEmb();if(!RELEMB)return;const R=RELEMB;
+  csvDownload(`embalagem_conferencias_${R.de}_a_${R.ate}.csv`,['NF','Serie','Cliente','Operador','Inicio','Fim','Duracao (min:s)','Unidades','Recontagens','Certa na 1a contagem','Volumes','Reconferencia','Chave'],
+    R.confs.map(c=>[c.numero,c.serie,c.cliente?.nome,c.operador?.nome,fmtDataHora(c.inicioMs),fmtDataHora(c.fimMs),fmtDur(c.duracaoS),c.unidades,c.recontagens,(c.recontagens===0&&!(c.ocorrencias||[]).some(o=>o.tipo==='lote_divergente'))?'sim':'nao',c.volumesEtiq||c.volumes||'',c.reconferencia?'sim':'nao',"'"+c.chave]));
+  if(R.ocs.length)setTimeout(()=>csvDownload(`embalagem_ocorrencias_${R.de}_a_${R.ate}.csv`,['Data/hora','NF','Operador','Tipo','Produto','EAN','Detalhe'],
+    [...R.ocs].sort((a,b)=>a.ms-b.ms).map(o=>{const p=produtoDaOcorrencia(o,R.prods);return [fmtDataHora(o.ms),o.numero,o.operador?.nome,TIPO_OCOR[o.tipo]||o.tipo,ERR_TIPOS.includes(o.tipo)||o.tipo==='sem_leitura'?p.nome:'',p.ean,o.detalhe||''];})),600);}
+function ajustarTipoRel(){const emb=tipoRel()==='emb';$('#rModWrap').classList.toggle('hidden',emb);$('#relArea').innerHTML='';REL=[];RELEMB=null;}
+$('#rTipo').addEventListener('change',()=>{ajustarTipoRel();gerarRel();});
 
 $('#ver').textContent=APP_VERSAO;
 </script>
