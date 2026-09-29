@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Romaneio NF-e</title>
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- Leitura de .zip -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --txt:#1c2330; --muted:#667085; --line:#e3e7ee;
+  --pri:#1f5fbf; --pri-2:#174a96; --ok:#1a7f45; --ok-bg:#e6f4ec; --err:#b42318; --err-bg:#fdecea;
+  --warn:#9a6700; --warn-bg:#fff5d6; --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select{font:inherit}
+.hidden{display:none!important}
+header.top{background:#12305f;color:#fff;display:flex;align-items:center;gap:16px;padding:10px 20px;flex-wrap:wrap}
+header.top h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+header.top .sp{flex:1}
+header.top .user{font-size:13px;opacity:.9}
+header.top button{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer}
+nav.tabs{display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--line);padding:0 16px;overflow-x:auto}
+nav.tabs button{border:0;background:none;padding:12px 14px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;font-weight:550}
+nav.tabs button.on{color:var(--pri);border-bottom-color:var(--pri)}
+main{max-width:1280px;margin:0 auto;padding:18px 16px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:600}
+.btn:hover{background:var(--pri-2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--txt);border:1px solid var(--line)}
+.btn.sec:hover{background:#f0f2f6}
+.btn.ok{background:var(--ok)} .btn.danger{background:var(--err)}
+.btn.sm{padding:5px 10px;font-size:13px}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],select{border:1px solid #cfd5df;border-radius:8px;padding:8px 10px;background:#fff;min-width:0}
+input:focus,select:focus{outline:2px solid #9dbcf0;border-color:var(--pri)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.scan-box{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+#scanInput{flex:1;min-width:240px;font-size:20px;padding:14px 16px;border:2px solid var(--pri);border-radius:10px;letter-spacing:.5px}
+.feedback{margin-top:12px;padding:12px 14px;border-radius:8px;font-weight:600;display:none}
+.feedback.ok{display:block;background:var(--ok-bg);color:var(--ok)}
+.feedback.err{display:block;background:var(--err-bg);color:var(--err)}
+.feedback.warn{display:block;background:var(--warn-bg);color:var(--warn)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px 16px;min-width:140px}
+.stat b{display:block;font-size:22px}
+.stat span{font-size:12px;color:var(--muted)}
+.tbl-wrap{overflow-x:auto}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:8px;border-bottom:1px solid #eef1f5;vertical-align:top}
+table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums}
+table.t tr.div td{background:var(--warn-bg)}
+table.t tfoot td{font-weight:700;border-top:2px solid var(--line)}
+.grp-head{display:flex;align-items:center;gap:10px;margin:18px 0 6px;flex-wrap:wrap}
+.grp-head h3{margin:0;font-size:14px}
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:99px;background:#eef2f8;color:#344054;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.err{background:var(--err-bg);color:var(--err)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.muted{color:var(--muted)} .small{font-size:12px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;word-break:break-all}
+.conf{width:78px;text-align:right}
+.drop{border:2px dashed #b8c4d6;border-radius:12px;padding:30px;text-align:center;background:#fafbfd;cursor:pointer}
+.drop.over{background:#eaf1fc;border-color:var(--pri)}
+.banner{background:var(--warn-bg);color:var(--warn);padding:8px 20px;font-size:13px;font-weight:600}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+/* login */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+#login .card{width:100%;max-width:380px}
+#login form{display:flex;flex-direction:column;gap:12px}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:90vh;overflow:auto;padding:20px}
+.modal h3{margin:0 0 12px;font-size:16px}
+.modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+#toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60}
+.toast{background:#1c2330;color:#fff;padding:10px 14px;border-radius:8px;max-width:360px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast.erro{background:var(--err)} .toast.ok{background:var(--ok)}
+#camBox{width:100%;max-width:520px;margin:0 auto}
+#print-area{display:none}
+#embInput{flex:1;min-width:240px;font-size:20px;padding:14px 16px;border:2px solid var(--ok);border-radius:10px}
+.emb-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.emb-cli{font-size:20px;font-weight:700}.emb-nf{font-size:26px;font-weight:800;color:var(--pri)}
+.emb-prog{position:relative;height:30px;background:#e9edf3;border-radius:8px;overflow:hidden;margin-bottom:12px}
+.emb-prog div{position:absolute;inset:0 auto 0 0;background:var(--ok);transition:width .25s}
+.emb-prog span{position:relative;display:block;text-align:center;line-height:30px;font-weight:700;font-size:13px}
+.emb-painel{border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center;margin-bottom:14px}
+.emb-item{font-size:24px;font-weight:800;margin:4px 0}.emb-cont{font-size:34px;font-weight:800;color:var(--pri)}
+.flash-ok{animation:fok .6s}.flash-err{animation:ferr .9s}
+@keyframes fok{0%{background:#c9f2d8;border-color:var(--ok)}100%{background:transparent}}
+@keyframes ferr{0%,40%{background:#ffd3cf;border-color:var(--err)}100%{background:transparent}}
+table.t tr.ok-row td{background:var(--ok-bg)} table.t tr.cur-row td{box-shadow:inset 0 2px 0 var(--pri),inset 0 -2px 0 var(--pri)}
+textarea{border:1px solid #cfd5df;border-radius:8px;padding:8px 10px;font:inherit;width:100%;min-height:110px;resize:vertical}
+.modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.modbtn{background:#fff;border:2px solid var(--line);border-radius:10px;padding:16px 14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;font:inherit;color:var(--txt)}
+.modbtn:hover{border-color:var(--pri);background:#f3f7fd}
+.modbtn b{font-size:16px}
+.modbtn span{font-size:12px;color:var(--muted)}
+.modatual{font-size:20px;font-weight:700;color:var(--pri)}
+.rast{width:150px;font-family:ui-monospace,Consolas,monospace;text-transform:uppercase}
+
+/* ===== Impressão ===== */
+@media print{
+  @page{size:A4 landscape;margin:9mm}
+  body{background:#fff}
+  body>*:not(#print-area){display:none!important}
+  #print-area{display:block!important}
+}
+.rp{font:11px/1.35 Arial,Helvetica,sans-serif;color:#000}
+.rp + .rp{break-before:page}
+.rp .h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px;gap:16px}
+.rp .h .tit{font-size:18px;font-weight:700}
+.rp .h .nro{font-size:18px;font-weight:700;text-align:right}
+.rp .info{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 16px;border:1px solid #000;padding:6px 8px;margin-bottom:8px}
+.rp .info div b{display:block;font-size:9px;text-transform:uppercase;color:#333}
+.rp table{width:100%;border-collapse:collapse}
+.rp th{background:#e8e8e8;font-size:9.5px;text-transform:uppercase;border:1px solid #000;padding:4px;text-align:left}
+.rp td{border:1px solid #000;padding:4px;vertical-align:top}
+.rp tr{break-inside:avoid}
+.rp td.n{text-align:right;white-space:nowrap}
+.rp .ch{font-family:Consolas,monospace;font-size:9px}
+.rp tfoot td{font-weight:700;background:#f2f2f2}
+.rp .dv{font-weight:700}
+.rp .ass{display:grid;grid-template-columns:1fr 1.6fr;gap:18px;margin-top:14px;break-inside:avoid}
+.rp .box{border:1px solid #000;padding:8px 10px}
+.rp .box h4{margin:0 0 6px;font-size:10px;text-transform:uppercase}
+.rp .ln{display:flex;gap:8px;margin-top:14px;align-items:flex-end}
+.rp .ln span{white-space:nowrap}
+.rp .ln i{flex:1;border-bottom:1px solid #000;height:14px;font-style:normal}
+.rp .rod{margin-top:8px;font-size:9px;color:#444;display:flex;justify-content:space-between}
+.rp .canc{border:2px solid #b00;color:#b00;font-weight:700;padding:4px 8px;margin-bottom:8px;text-align:center;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- ============ CONFIGURAÇÃO ============ -->
+<script>
+/* Cole aqui a configuração do seu projeto Firebase (Console > Configurações do projeto > Seus apps > Web).
+   Enquanto estiver null, o sistema roda em MODO DEMONSTRAÇÃO (dados salvos só neste navegador). */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC1aGIHkq7aRWlKTj3YeQynAvzN-yO8eOc",
+  authDomain: "romaneio-nfe.firebaseapp.com",
+  projectId: "romaneio-nfe",
+  storageBucket: "romaneio-nfe.firebasestorage.app",
+  messagingSenderId: "839829708627",
+  appId: "1:839829708627:web:ba238dd0769764b9708ba6"
+};
+/* Exemplo:
+const FIREBASE_CONFIG = {
+  apiKey: "AIza...",
+  authDomain: "romaneio-nfe.firebaseapp.com",
+  projectId: "romaneio-nfe",
+  storageBucket: "romaneio-nfe.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:xxxxxxxx"
+};
+*/
+const APP_VERSAO = "1.3.0 (2026-09-29)";
+</script>
+
+<!-- ============ LOGIN ============ -->
+<div id="login" class="hidden">
+  <div class="card">
+    <h2 style="font-size:18px">Romaneio NF-e</h2>
+    <p class="muted small" id="loginSub">Entre com seu usuário.</p>
+    <form id="loginForm" autocomplete="on">
+      <label class="f" id="lfEmail">E-mail<input type="email" id="lEmail" autocomplete="username"></label>
+      <label class="f" id="lfSenha">Senha<input type="password" id="lSenha" autocomplete="current-password"></label>
+      <label class="f hidden" id="lfNome">Seu nome (responsável pela remessa)<input type="text" id="lNome"></label>
+      <button class="btn" type="submit">Entrar</button>
+      <button class="btn sec" type="button" id="btnEsqueci">Esqueci minha senha</button>
+      <div class="feedback" id="loginMsg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <header class="top">
+    <h1>Romaneio NF-e</h1>
+    <div class="sp"></div>
+    <div class="user" id="userName"></div>
+    <button id="btnSair">Sair</button>
+  </header>
+  <div class="banner hidden" id="demoBanner">MODO DEMONSTRAÇÃO: os dados ficam só neste navegador. Configure o Firebase para uso da equipe.</div>
+  <nav class="tabs">
+    <button data-tab="emb" class="on">Embalagem</button>
+    <button data-tab="exp">Expedição</button>
+    <button data-tab="base">Base de XMLs</button>
+    <button data-tab="hist">Histórico</button>
+    <button data-tab="rel">Relatórios</button>
+    <button data-tab="cfg" id="tabCfgBtn" class="hidden">Configurações</button>
+  </nav>
+
+  <main>
+    <!-- EMBALAGEM -->
+    <section id="tab-emb">
+      <div class="card">
+        <h2>Conferência de embalagem (bipe item a item)</h2>
+        <div class="scan-box">
+          <input id="embInput" type="text" autocomplete="off" placeholder="Bipe o DANFE para abrir a NF; depois bipe cada item">
+          <button class="btn sec hidden" id="embCancelar">Abandonar conferência</button>
+        </div>
+        <div class="feedback" id="embMsg"></div>
+      </div>
+      <div class="card" id="embArea"></div>
+    </section>
+
+    <!-- EXPEDIÇÃO -->
+    <section id="tab-exp" class="hidden">
+      <div class="card" id="modCard"></div>
+      <div class="card hidden" id="scanCard">
+        <h2>Bipe a NF (código de barras do DANFE ou QR code)</h2>
+        <div class="scan-box">
+          <input id="scanInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Aguardando leitura… (ou digite a chave de 44 dígitos e Enter)">
+          <button class="btn sec" id="btnCam">Usar câmera</button>
+        </div>
+        <div class="feedback" id="scanMsg"></div>
+      </div>
+
+      <div class="stats" id="expStats"></div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Remessa em montagem</h2>
+          <div class="row">
+            <button class="btn sec sm" id="btnLimpar">Limpar tudo</button>
+            <button class="btn ok" id="btnFinalizar">Finalizar e gerar romaneios</button>
+          </div>
+        </div>
+        <p class="muted small" style="margin:6px 0 0">Informe os <b>volumes conferidos</b> fisicamente em cada NF. Diferenças em relação ao XML ficam destacadas e registradas. <span id="regraRom"></span></p>
+        <div id="draftArea"></div>
+      </div>
+    </section>
+
+    <!-- BASE -->
+    <section id="tab-base" class="hidden">
+      <div class="card">
+        <h2>Importar XMLs</h2>
+        <div class="drop" id="drop">
+          <b>Arraste aqui os XMLs ou arquivos .zip</b><br>
+          <span class="muted small">ou clique para selecionar. Aceita vários arquivos de uma vez.</span>
+          <input type="file" id="fileInput" multiple accept=".xml,.zip,text/xml,application/zip" class="hidden">
+        </div>
+        <div id="importResult"></div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Notas na base</h2>
+          <div class="row">
+            <input type="text" id="baseBusca" placeholder="Nº da NF, chave ou cliente">
+            <button class="btn sec sm" id="btnBaseBuscar">Buscar</button>
+          </div>
+        </div>
+        <div id="baseList" class="tbl-wrap"></div>
+      </div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section id="tab-hist" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items:flex-end">
+          <label class="f">De<input type="date" id="hDe"></label>
+          <label class="f">Até<input type="date" id="hAte"></label>
+          <label class="f">Busca<input type="text" id="hBusca" placeholder="NF, cliente, transportadora, nº romaneio"></label>
+          <label class="f">Status<select id="hStatus"><option value="">Todos</option><option value="ativo">Ativos</option><option value="cancelado">Cancelados</option></select></label>
+          <label class="f">Modalidade<select id="hMod"><option value="">Todas</option></select></label>
+          <button class="btn" id="btnHist">Pesquisar</button>
+        </div>
+        <div class="row small" style="margin-top:8px" data-periodo-for="h">
+          <span class="muted">Período rápido:</span>
+          <button class="btn sec sm" data-p="hoje">Hoje</button>
+          <button class="btn sec sm" data-p="7">7 dias</button>
+          <button class="btn sec sm" data-p="mes">Este mês</button>
+          <button class="btn sec sm" data-p="mesant">Mês passado</button>
+        </div>
+      </div>
+      <div class="card"><div id="histList" class="tbl-wrap"></div></div>
+    </section>
+
+    <!-- RELATÓRIOS -->
+    <section id="tab-rel" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items:flex-end">
+          <label class="f">De<input type="date" id="rDe"></label>
+          <label class="f">Até<input type="date" id="rAte"></label>
+          <label class="f">Modalidade<select id="rMod"><option value="">Todas</option></select></label>
+          <button class="btn" id="btnRel">Gerar relatório</button>
+          <button class="btn sec" id="btnCsv">Exportar CSV (detalhado)</button>
+          <button class="btn sec" id="btnRelPrint">Imprimir / PDF</button>
+        </div>
+        <div class="row small" style="margin-top:8px" data-periodo-for="r">
+          <span class="muted">Período rápido:</span>
+          <button class="btn sec sm" data-p="hoje">Hoje</button>
+          <button class="btn sec sm" data-p="7">7 dias</button>
+          <button class="btn sec sm" data-p="mes">Este mês</button>
+          <button class="btn sec sm" data-p="mesant">Mês passado</button>
+        </div>
+      </div>
+      <div id="relArea"></div>
+    </section>
+    <!-- CONFIGURAÇÕES (GESTOR) -->
+    <section id="tab-cfg" class="hidden">
+      <div class="card">
+        <h2>Modalidades de envio</h2>
+        <p class="muted small" style="margin-top:-6px">Somente o gestor vê esta aba. Modalidades retiradas deixam de aparecer para novas remessas, mas continuam nos romaneios antigos, no histórico e nos relatórios.</p>
+        <div id="cfgList" class="tbl-wrap"></div>
+        <h2 style="margin-top:20px">Adicionar modalidade</h2>
+        <div class="row" style="align-items:flex-end">
+          <label class="f">Nome<input type="text" id="cfgNome" placeholder="Ex.: Uber Flash"></label>
+          <label class="f">Comportamento<select id="cfgTipo"></select></label>
+          <button class="btn" id="btnCfgAdd">Adicionar</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Usuários</h2>
+        <p class="muted small" style="margin-top:-6px">Só entra no sistema quem estiver nesta lista e ativo. Ao cadastrar, a pessoa recebe um e-mail para criar a própria senha. O nome cadastrado é o que sai como <b>responsável pela remessa</b>.</p>
+        <div id="usrList" class="tbl-wrap"></div>
+        <h2 style="margin-top:20px">Cadastrar um usuário</h2>
+        <div class="row" style="align-items:flex-end">
+          <label class="f">Nome<input type="text" id="usrNome" placeholder="Ex.: Ana Souza"></label>
+          <label class="f">E-mail<input type="email" id="usrEmail" placeholder="ana@exemplo.com"></label>
+          <label class="f">Perfil<select id="usrPerfil"><option value="auxiliar">Auxiliar</option><option value="gestor">Gestor</option></select></label>
+          <button class="btn" id="btnUsrAdd">Cadastrar</button>
+        </div>
+        <h2 style="margin-top:20px">Colar vários usuários</h2>
+        <p class="muted small" style="margin-top:-6px">Uma pessoa por linha: <b>Nome; e-mail; perfil</b> (perfil = gestor ou auxiliar; se ficar vazio, entra como auxiliar). Pode colar direto do Excel, com as três colunas.</p>
+        <textarea id="usrColar" placeholder="Ana Souza; ana@exemplo.com; auxiliar&#10;Carlos Lima; carlos@exemplo.com; gestor"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn sec" id="btnUsrPrev">Conferir lista</button></div>
+        <div id="usrPrev" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>Embalagem: parâmetros</h2>
+        <div class="row" style="align-items:flex-end">
+          <label class="f">Liberar múltiplos para itens com quantidade acima de<input type="number" id="cfgLimMult" min="1" max="1000" style="width:120px"></label>
+          <label class="f">Alertar validade menor que (dias)<input type="number" id="cfgDiasVal" min="0" max="3650" style="width:120px"></label>
+          <button class="btn" id="btnParamEmb">Salvar parâmetros</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Produtos: código interno → código de barras (EAN)</h2>
+        <p class="muted small" style="margin-top:-6px">Usado quando a NF não traz o EAN. Os EANs que vierem nos XMLs importados entram aqui automaticamente. <span id="prodInfo"></span></p>
+        <p class="muted small">Cole uma linha por produto: <b>código interno; EAN; descrição</b> (pode colar 3 colunas do Excel).</p>
+        <textarea id="prodColar" placeholder="MESO001; 7891234567895; Sérum Exemplo 30 ml"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn" id="btnProdImp">Importar produtos</button>
+          <input type="text" id="prodBusca" placeholder="Buscar código, EAN ou descrição"><button class="btn sec" id="btnProdBusca">Buscar</button></div>
+        <div id="prodRes" class="tbl-wrap" style="margin-top:10px"></div>
+      </div>
+    </section>
+    <p class="muted small" style="text-align:center">Versão <span id="ver"></span></p>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<div id="print-area"></div>
+
+<script>
+/* ================= UTILITÁRIOS ================= */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function onlyDig(s){return String(s||'').replace(/\D/g,'');}
+function fmtDoc(d){d=onlyDig(d); if(d.length===14)return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'); if(d.length===11)return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/,'$1.$2.$3-$4'); return d;}
+function fmtCep(c){c=onlyDig(c);return c.length===8?c.replace(/^(\d{5})(\d{3})$/,'$1-$2'):c;}
+function fmtData(iso){if(!iso)return '';const [y,m,d]=iso.slice(0,10).split('-');return `${d}/${m}/${y}`;}
+function fmtDataHora(ms){const d=new Date(ms);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function pad(n,l=6){return String(n).padStart(l,'0');}
+function fmtChave(c){return String(c).replace(/(\d{4})(?=\d)/g,'$1 ');}
+function isoHoje(d=new Date()){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+function nInt(v){const n=parseInt(v,10);return isNaN(n)?0:n;}
+
+function toast(msg,tipo=''){const el=document.createElement('div');el.className='toast '+tipo;el.textContent=msg;$('#toasts').appendChild(el);setTimeout(()=>el.remove(),tipo==='erro'?7000:3500);}
+
+let actx=null;
+function bip(ok){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.type=ok?'sine':'square';o.frequency.value=ok?1250:200;g.gain.value=.08;o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+(ok?.12:.4));}catch(e){}}
+
+function dialogo({titulo,html,botoes=[{txt:'OK',val:true,cls:''}]}){
+  return new Promise(res=>{
+    const bg=document.createElement('div');bg.className='modal-bg';
+    bg.innerHTML=`<div class="modal"><h3>${esc(titulo)}</h3><div class="mb">${html}</div><div class="acts"></div></div>`;
+    const acts=bg.querySelector('.acts');
+    botoes.forEach(b=>{const bt=document.createElement('button');bt.className='btn '+(b.cls||'');bt.textContent=b.txt;bt.onclick=()=>{const v=typeof b.val==='function'?b.val(bg):b.val; if(v===undefined)return; bg.remove();res(v);};acts.appendChild(bt);});
+    bg.addEventListener('keydown',e=>{if(e.key==='Escape'){bg.remove();res(null);}});
+    document.body.appendChild(bg);
+    const f=bg.querySelector('input,textarea')||acts.lastChild; f&&f.focus();
+  });
+}
+
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},
+          set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){toast('Não foi possível salvar neste navegador: '+e.message,'erro');return false;}}};
+
+/* ================= CHAVE DE ACESSO ================= */
+function dvChave(c43){let p=2,s=0;for(let i=42;i>=0;i--){s+=(+c43[i])*p;p=p===9?2:p+1;}const r=s%11;return r<2?0:11-r;}
+function chaveValida(c){return /^\d{44}$/.test(c)&&dvChave(c.slice(0,43))===+c[43];}
+function extrairChave(raw){
+  const s=String(raw||'').trim();
+  let m=s.match(/chNFe=(\d{44})/i)||s.match(/[?&]p=(\d{44})/i);
+  if(m)return m[1];
+  const runs=s.match(/\d{44,}/g)||[];
+  for(const r of runs){ if(r.length===44)return r; }
+  const dig=onlyDig(s); if(dig.length===44)return dig;
+  return runs.length?runs[0].slice(0,44):null;
+}
+function decodificarChave(c){return {uf:c.slice(0,2),aamm:c.slice(2,6),cnpj:c.slice(6,20),modelo:c.slice(20,22),serie:String(+c.slice(22,25)),numero:String(+c.slice(25,34))};}
+
+/* ================= LEITURA DO XML ================= */
+const MOD_FRETE={'0':'Por conta do emitente (CIF)','1':'Por conta do destinatário (FOB)','2':'Por conta de terceiros','3':'Transporte próprio do remetente','4':'Transporte próprio do destinatário','9':'Sem ocorrência de transporte'};
+function el1(root,tag){if(!root)return null;return root.getElementsByTagNameNS('*',tag)[0]||null;}
+function tx(root,tag){const n=el1(root,tag);return n?n.textContent.trim():'';}
+function filho(root,tag){if(!root)return null;for(const c of root.children){if(c.localName===tag)return c;}return null;}
+function parseNFe(texto,arquivo=''){
+  const doc=new DOMParser().parseFromString(texto,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('arquivo XML inválido');
+  const inf=el1(doc,'infNFe'); if(!inf)throw new Error('não é uma NF-e (sem infNFe)');
+  const prot=el1(doc,'protNFe');
+  let chave=onlyDig(tx(prot,'chNFe'))||onlyDig((inf.getAttribute('Id')||''));
+  if(!chaveValida(chave))throw new Error('chave de acesso inválida');
+  const ide=filho(inf,'ide'),emit=filho(inf,'emit'),dest=filho(inf,'dest'),transp=filho(inf,'transp');
+  const ender=filho(dest,'enderDest');
+  const transporta=filho(transp,'transporta');
+  let vol=0,esp=[],pesoB=0,temVol=false;
+  if(transp){for(const v of transp.children){if(v.localName!=='vol')continue;temVol=true;vol+=nInt(tx(v,'qVol'));const e=tx(v,'esp');if(e&&!esp.includes(e))esp.push(e);pesoB+=parseFloat(tx(v,'pesoB')||0)||0;}}
+  const cStat=tx(prot,'cStat');
+  const modFrete=tx(transp,'modFrete');
+  const itens=[];const eanOf=v=>{v=onlyDig(v);return gtinValido(v)?v:'';};
+  for(const det of inf.children){if(det.localName!=='det')continue;const pr=filho(det,'prod');if(!pr)continue;
+    const lotes=[];for(const c of pr.children){if(c.localName==='rastro')lotes.push({nLote:tx(c,'nLote'),qLote:parseFloat(tx(c,'qLote')||0)||0,dFab:tx(c,'dFab'),dVal:tx(c,'dVal')});}
+    itens.push({n:+det.getAttribute('nItem')||itens.length+1,cProd:tx(pr,'cProd'),ean:eanOf(tx(pr,'cEAN'))||eanOf(tx(pr,'cEANTrib')),xProd:tx(pr,'xProd'),qCom:parseFloat(tx(pr,'qCom')||0)||0,uCom:tx(pr,'uCom'),lotes});}
+  return {
+    chave, numero:String(+tx(ide,'nNF')), serie:String(+tx(ide,'serie')||0), modelo:tx(ide,'mod'),
+    dataEmissao:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),
+    emitente:{nome:tx(emit,'xNome'),doc:tx(emit,'CNPJ')||tx(emit,'CPF')},
+    cliente:{nome:tx(dest,'xNome'),doc:filho(dest,'CNPJ')?.textContent||filho(dest,'CPF')?.textContent||filho(dest,'idEstrangeiro')?.textContent||'',ie:filho(dest,'IE')?.textContent||''},
+    endereco:{logradouro:tx(ender,'xLgr'),numero:tx(ender,'nro'),complemento:tx(ender,'xCpl'),bairro:tx(ender,'xBairro'),municipio:tx(ender,'xMun'),uf:tx(ender,'UF'),cep:tx(ender,'CEP'),fone:tx(ender,'fone')},
+    transportadora:{nome:tx(transporta,'xNome'),doc:(filho(transporta,'CNPJ')?.textContent||filho(transporta,'CPF')?.textContent||''),modFrete,modFreteDesc:MOD_FRETE[modFrete]||'',municipio:tx(transporta,'xMun'),uf:tx(transporta,'UF')},
+    itens, volumes:vol, temVolume:temVol, especie:esp.join(', '), pesoBruto:Math.round(pesoB*1000)/1000,
+    valor:parseFloat(tx(el1(inf,'ICMSTot'),'vNF')||0)||0,
+    autorizada:(cStat==='100'||cStat==='150'), protocolo:tx(prot,'nProt'), cStat,
+    arquivo, importadoMs:Date.now()
+  };
+}
+function enderecoStr(e){if(!e)return '';const p=[];let l=[e.logradouro,e.numero].filter(Boolean).join(', ');if(e.complemento)l+=' - '+e.complemento;if(l)p.push(l);if(e.bairro)p.push(e.bairro);return p.join(' - ');}
+function cidadeUf(e){return e?[e.municipio,e.uf].filter(Boolean).join('/'):'';}
+const SEM_TRANSP='Retirada / Sem transportadora';
+function transpKey(t){if(!t||(!t.nome&&!t.doc))return 'SEM';return t.doc?onlyDig(t.doc):'N:'+t.nome.trim().toUpperCase();}
+function transpNome(t){return (t&&t.nome)||SEM_TRANSP;}
+
+/* ================= CAMADA DE DADOS ================= */
+function montarRomaneio(grupo,resp,numero){
+  const itens=grupo.itens.map(it=>{const n=it.nota;return {chave:n.chave,numero:n.numero,serie:n.serie,dataEmissao:n.dataEmissao,cliente:n.cliente,endereco:n.endereco,volXml:n.volumes,volConf:nInt(it.volConf),especie:n.especie,pesoBruto:n.pesoBruto,valor:n.valor,autorizada:n.autorizada,rastreio:it.rastreio||'',alertaMod:it.alertaMod||''};});
+  const volXml=itens.reduce((a,b)=>a+b.volXml,0),volConf=itens.reduce((a,b)=>a+b.volConf,0);
+  return {numero,criadoMs:Date.now(),status:'ativo',transportadora:grupo.transportadora,modalidade:grupo.modalidade||null,evento:grupo.evento||'',emitente:grupo.itens[0].nota.emitente,responsavel:resp,itens,
+    totais:{nfs:itens.length,volXml,volConf,divergencias:itens.filter(i=>i.volXml!==i.volConf).length,peso:Math.round(itens.reduce((a,b)=>a+(b.pesoBruto||0),0)*1000)/1000,valor:Math.round(itens.reduce((a,b)=>a+(b.valor||0),0)*100)/100},
+    busca:[...itens.map(i=>i.numero),...itens.map(i=>(i.cliente.nome||'').toUpperCase())]};
+}
+
+const LocalDB={
+  async getParamEmb(){return LS.get('rnfe_param_emb',null);},
+  async salvarParamEmb(p){LS.set('rnfe_param_emb',p);},
+  async getProdutos(ids){const m=LS.get('rnfe_prods',{}),o={};ids.forEach(i=>{if(m[i])o[i]=m[i];});return o;},
+  async salvarProdutos(l){const m=LS.get('rnfe_prods',{});l.forEach(p=>m[p.cProd]={...(m[p.cProd]||{}),...p});if(!LS.set('rnfe_prods',m))throw new Error('falha ao salvar');},
+  async contarProdutos(){return Object.keys(LS.get('rnfe_prods',{})).length;},
+  async buscarProduto(q){const Q=q.toUpperCase();return Object.values(LS.get('rnfe_prods',{})).filter(p=>p.cProd.toUpperCase().includes(Q)||p.ean.includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
+  async registrarOcorrencia(o){const a=LS.get('rnfe_ocor',[]);a.push(o);LS.set('rnfe_ocor',a.slice(-5000));},
+  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;LS.set('rnfe_notas',n);}},
+  async listarUsuarios(){return Object.values(LS.get('rnfe_users',{})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
+  async getUsuario(em){return LS.get('rnfe_users',{})[em]||null;},
+  async salvarUsuario(u){const m=LS.get('rnfe_users',{});m[u.email]={...(m[u.email]||{}),...u};if(!LS.set('rnfe_users',m))throw new Error('falha ao salvar neste navegador');},
+  async criarAcesso(){return 'demo';},
+  async reenviarSenha(){return 'demo';},
+  async getModalidades(){return LS.get('rnfe_mods',null);},
+  async salvarModalidades(l){if(!LS.set('rnfe_mods',l))throw new Error('falha ao salvar neste navegador');},
+  async importarNotas(lista){const m=LS.get('rnfe_notas',{});let novas=0,atual=0;
+    for(const n of lista){const ex=m[n.chave];if(ex){atual++;m[n.chave]={...ex,...n,importadoMs:ex.importadoMs,romaneioId:ex.romaneioId||null,romaneioNumero:ex.romaneioNumero||null};}else{novas++;m[n.chave]={...n,romaneioId:null,romaneioNumero:null};}}
+    if(!LS.set('rnfe_notas',m))throw new Error('armazenamento cheio');return {novas,atual};},
+  async getNota(ch){return LS.get('rnfe_notas',{})[ch]||null;},
+  async listarNotas(busca){let a=Object.values(LS.get('rnfe_notas',{})).sort((x,y)=>y.importadoMs-x.importadoMs);
+    if(busca){const b=busca.trim().toUpperCase(),d=onlyDig(busca);a=a.filter(n=>(d&&(n.numero===String(+d)||n.chave===d))||(n.cliente.nome||'').toUpperCase().includes(b));}
+    return a.slice(0,300);},
+  async finalizarGrupo(grupo,resp){const m=LS.get('rnfe_notas',{});
+    for(const it of grupo.itens){const n=m[it.nota.chave];if(!n)throw new Error(`NF ${it.nota.numero} não está mais na base`);if(n.romaneioId)throw new Error(`NF ${n.numero} já está no romaneio Nº ${pad(n.romaneioNumero)}`);}
+    const num=LS.get('rnfe_seq',0)+1;const r=montarRomaneio(grupo,resp,num);r.id='L'+Date.now()+Math.random().toString(36).slice(2,7);
+    const roms=LS.get('rnfe_roms',[]);roms.push(r);
+    for(const it of grupo.itens){m[it.nota.chave].romaneioId=r.id;m[it.nota.chave].romaneioNumero=num;}
+    LS.set('rnfe_roms',roms);LS.set('rnfe_notas',m);LS.set('rnfe_seq',num);return r;},
+  async listarRomaneios(de,ate){return LS.get('rnfe_roms',[]).filter(r=>r.criadoMs>=de&&r.criadoMs<=ate).sort((a,b)=>b.criadoMs-a.criadoMs||b.numero-a.numero);},
+  async cancelarRomaneio(id,motivo,user){const roms=LS.get('rnfe_roms',[]);const r=roms.find(x=>x.id===id);if(!r||r.status==='cancelado')throw new Error('romaneio não encontrado ou já cancelado');
+    r.status='cancelado';r.cancelamento={por:user.nome,em:Date.now(),motivo};const m=LS.get('rnfe_notas',{});
+    for(const i of r.itens){if(m[i.chave]&&m[i.chave].romaneioId===id){m[i.chave].romaneioId=null;m[i.chave].romaneioNumero=null;}}
+    LS.set('rnfe_roms',roms);LS.set('rnfe_notas',m);return r;}
+};
+
+let fdb=null,fauth=null,secApp=null;
+const docIdProd=c=>String(c).replace(/\//g,'_');
+const FireDB={
+  async getParamEmb(){const s=await fdb.collection('config').doc('embalagem').get();return s.exists?s.data():null;},
+  async salvarParamEmb(p){await fdb.collection('config').doc('embalagem').set(p,{merge:true});},
+  async getProdutos(ids){const o={};const sn=await Promise.all(ids.map(id=>fdb.collection('produtos').doc(docIdProd(id)).get()));sn.forEach(s=>{if(s.exists){const d=s.data();o[d.cProd]=d;}});return o;},
+  async salvarProdutos(l){for(let i=0;i<l.length;i+=400){const b=fdb.batch();l.slice(i,i+400).forEach(p=>b.set(fdb.collection('produtos').doc(docIdProd(p.cProd)),p,{merge:true}));await b.commit();}},
+  async contarProdutos(){const s=await fdb.collection('produtos').get();return s.size;},
+  async buscarProduto(q){const s=await fdb.collection('produtos').get();const Q=q.toUpperCase();return s.docs.map(d=>d.data()).filter(p=>String(p.cProd).toUpperCase().includes(Q)||String(p.ean).includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
+  async registrarOcorrencia(o){await fdb.collection('conf_ocorrencias').add(o);},
+  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome});await b.commit();},
+  async listarUsuarios(){const q=await fdb.collection('usuarios').get();return q.docs.map(d=>d.data()).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
+  async getUsuario(em){const s=await fdb.collection('usuarios').doc(em).get();return s.exists?s.data():null;},
+  async salvarUsuario(u){await fdb.collection('usuarios').doc(u.email).set(u,{merge:true});},
+  async criarAcesso(email,nome){ // cria o login numa instância separada para o gestor continuar logado
+    if(!secApp)secApp=firebase.initializeApp(FIREBASE_CONFIG,'cadastro');const sa=secApp.auth();let st='criado';
+    try{const pw=Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(36)).join('')+'Aa1!';
+      const c=await sa.createUserWithEmailAndPassword(email,pw);try{await c.user.updateProfile({displayName:nome});}catch(e){}await sa.signOut();}
+    catch(e){if(e.code==='auth/email-already-in-use')st='existente';else throw e;}
+    await fauth.sendPasswordResetEmail(email);return st;},
+  async reenviarSenha(email){await fauth.sendPasswordResetEmail(email);},
+  async getModalidades(){const s=await fdb.collection('config').doc('modalidades').get();return s.exists?(s.data().lista||null):null;},
+  async salvarModalidades(l,u){await fdb.collection('config').doc('modalidades').set({lista:l,atualizadoPor:(u&&u.nome)||'',atualizadoMs:Date.now()});},
+  async importarNotas(lista){const col=fdb.collection('notas');let novas=0,atual=0;
+    for(let i=0;i<lista.length;i+=400){const chunk=lista.slice(i,i+400);
+      const snaps=await Promise.all(chunk.map(n=>col.doc(n.chave).get()));
+      const batch=fdb.batch();
+      chunk.forEach((n,k)=>{if(snaps[k].exists){atual++;const {importadoMs,...rest}=n;batch.set(col.doc(n.chave),rest,{merge:true});}else{novas++;batch.set(col.doc(n.chave),{...n,romaneioId:null,romaneioNumero:null});}});
+      await batch.commit();}
+    return {novas,atual};},
+  async getNota(ch){const s=await fdb.collection('notas').doc(ch).get();return s.exists?s.data():null;},
+  async listarNotas(busca){const col=fdb.collection('notas');const d=onlyDig(busca||'');
+    if(busca&&d.length===44){const n=await this.getNota(d);return n?[n]:[];}
+    if(busca&&d&&d===busca.trim()){const q=await col.where('numero','==',String(+d)).limit(50).get();return q.docs.map(x=>x.data());}
+    const q=await col.orderBy('importadoMs','desc').limit(busca?1000:300).get();let a=q.docs.map(x=>x.data());
+    if(busca){const b=busca.trim().toUpperCase();a=a.filter(n=>(n.cliente.nome||'').toUpperCase().includes(b));}return a;},
+  async finalizarGrupo(grupo,resp){
+    return fdb.runTransaction(async t=>{
+      const cRef=fdb.collection('contadores').doc('romaneio');const cSnap=await t.get(cRef);
+      const refs=grupo.itens.map(it=>fdb.collection('notas').doc(it.nota.chave));
+      const snaps=[];for(const r of refs)snaps.push(await t.get(r));
+      snaps.forEach((s,i)=>{if(!s.exists)throw new Error(`NF ${grupo.itens[i].nota.numero} não está mais na base`);const d=s.data();if(d.romaneioId)throw new Error(`NF ${d.numero} já está no romaneio Nº ${pad(d.romaneioNumero)}`);});
+      const num=(cSnap.exists?(cSnap.data().ultimo||0):0)+1;
+      const rRef=fdb.collection('romaneios').doc();const r=montarRomaneio(grupo,resp,num);r.id=rRef.id;
+      t.set(rRef,r);t.set(cRef,{ultimo:num},{merge:true});
+      refs.forEach(ref=>t.update(ref,{romaneioId:r.id,romaneioNumero:num}));
+      return r;});},
+  async listarRomaneios(de,ate){const q=await fdb.collection('romaneios').where('criadoMs','>=',de).where('criadoMs','<=',ate).orderBy('criadoMs','desc').limit(2000).get();return q.docs.map(d=>d.data());},
+  async cancelarRomaneio(id,motivo,user){
+    return fdb.runTransaction(async t=>{const rRef=fdb.collection('romaneios').doc(id);const s=await t.get(rRef);
+      if(!s.exists||s.data().status==='cancelado')throw new Error('romaneio não encontrado ou já cancelado');
+      const r=s.data();const refs=r.itens.map(i=>fdb.collection('notas').doc(i.chave));const ns=[];for(const x of refs)ns.push(await t.get(x));
+      const canc={por:user.nome,porUid:user.uid,em:Date.now(),motivo};t.update(rRef,{status:'cancelado',cancelamento:canc});
+      ns.forEach((n,i)=>{if(n.exists&&n.data().romaneioId===id)t.update(refs[i],{romaneioId:null,romaneioNumero:null});});
+      return {...r,status:'cancelado',cancelamento:canc};});}
+};
+let DB=LocalDB;
+const MODO_FIREBASE=!!(FIREBASE_CONFIG&&typeof firebase!=='undefined');
+if(MODO_FIREBASE){firebase.initializeApp(FIREBASE_CONFIG);fauth=firebase.auth();fauth.languageCode='pt-BR';fdb=firebase.firestore();DB=FireDB;}
+
+/* ================= AUTENTICAÇÃO ================= */
+let USER=null; // {uid,nome,email}
+function mostrarLogin(){$('#app').classList.add('hidden');$('#login').classList.remove('hidden');
+  if(!MODO_FIREBASE){$('#lfEmail').classList.add('hidden');$('#lfSenha').classList.add('hidden');$('#btnEsqueci').classList.add('hidden');$('#lfNome').classList.remove('hidden');$('#loginSub').textContent='Modo demonstração: informe seu nome para começar.';$('#lNome').focus();}
+  else $('#lEmail').focus();}
+function msgLogin(t,c='err'){const m=$('#loginMsg');m.className='feedback '+c;m.textContent=t;}
+async function entrar(u){USER=u;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#userName').textContent=u.nome+(u.email?' · '+u.email:'');
+  $('#demoBanner').classList.toggle('hidden',MODO_FIREBASE);$('#tabCfgBtn').classList.toggle('hidden',!isGestor());
+  await carregarMods();await carregarParamEmb();carregarDraft();renderDraft();renderEmb();focarScan();focarEmb();}
+$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();
+  if(!MODO_FIREBASE){const nome=$('#lNome').value.trim();if(!nome)return msgLogin('Informe seu nome.');const u={uid:'local-'+nome.toLowerCase().replace(/\W+/g,'-'),nome,email:''};LS.set('rnfe_local_user',u);return entrar(u);}
+  try{msgLogin('Entrando…','warn');await fauth.signInWithEmailAndPassword($('#lEmail').value.trim(),$('#lSenha').value);}
+  catch(err){msgLogin(err.code==='auth/invalid-credential'||err.code==='auth/wrong-password'||err.code==='auth/user-not-found'?'E-mail ou senha incorretos.':'Erro ao entrar: '+err.message);}});
+$('#btnEsqueci').onclick=async()=>{const em=$('#lEmail').value.trim();if(!em)return msgLogin('Digite seu e-mail acima e clique novamente.');
+  try{await fauth.sendPasswordResetEmail(em);msgLogin('Enviamos um e-mail para redefinir a senha.','ok');}catch(err){msgLogin('Não foi possível enviar: '+err.message);}};
+$('#btnSair').onclick=async()=>{if(MODO_FIREBASE)await fauth.signOut();else{try{localStorage.removeItem('rnfe_local_user');}catch(e){}USER=null;mostrarLogin();}};
+let unsubUser=null;
+if(MODO_FIREBASE){fauth.onAuthStateChanged(async u=>{
+    if(unsubUser){unsubUser();unsubUser=null;}
+    if(!u){USER=null;return mostrarLogin();}
+    const em=String(u.email||'').toLowerCase();
+    try{
+      let reg=await DB.getUsuario(em);
+      if(!reg&&em===SUPER_GESTOR){reg={email:em,nome:u.displayName||'Marco',perfil:'gestor',ativo:true,criadoMs:Date.now(),criadoPor:'sistema'};await DB.salvarUsuario(reg);}
+      if(!reg||reg.ativo===false){await fauth.signOut();mostrarLogin();return msgLogin(reg?'Seu acesso está desativado. Fale com o gestor.':'Seu e-mail não está cadastrado no sistema. Fale com o gestor.');}
+      const perfil=em===SUPER_GESTOR?'gestor':reg.perfil;
+      await entrar({uid:u.uid,nome:reg.nome,email:em,perfil});
+      if(perfil==='gestor')await semearUsuarios();
+      unsubUser=fdb.collection('usuarios').doc(em).onSnapshot(sn=>{const d=sn.data();
+        if(em!==SUPER_GESTOR&&(!d||d.ativo===false)){toast('Seu acesso foi desativado pelo gestor.','erro');fauth.signOut();return;}
+        if(d&&USER){const p2=em===SUPER_GESTOR?'gestor':d.perfil;if(d.nome!==USER.nome||p2!==USER.perfil){USER.nome=d.nome;USER.perfil=p2;$('#userName').textContent=USER.nome+' · '+USER.email;$('#tabCfgBtn').classList.toggle('hidden',!isGestor());}}
+      },()=>{});
+    }catch(err){console.error(err);try{await fauth.signOut();}catch(e){}mostrarLogin();msgLogin('Não foi possível validar seu acesso: '+traduzErro(err));}
+  });}
+else setTimeout(()=>{const u=LS.get('rnfe_local_user',null);u?entrar(u):mostrarLogin();},0);
+
+/* ================= ABAS ================= */
+$$('nav.tabs button').forEach(b=>b.onclick=()=>{$$('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  ['emb','exp','base','hist','rel','cfg'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==b.dataset.tab));
+  if(b.dataset.tab==='emb')focarEmb();if(b.dataset.tab==='exp')focarScan();if(b.dataset.tab==='base')listarBase();if(b.dataset.tab==='hist')pesquisarHist();if(b.dataset.tab==='cfg')renderCfg();});
+
+/* ================= MODALIDADES DE ENVIO ================= */
+const SUPER_GESTOR='marcowanuthe.mw@gmail.com';
+const TIPOS={padrao:'Padrão (sem regra extra)',correios:'Exige código de postagem (como Correios)',transportadora:'Agrupa pela transportadora do XML',retirada:'Retirada (assina quem retirou)',evento:'Evento (pede o nome do evento)'};
+const TIPO_CURTO={padrao:'',correios:'NF + etiqueta de postagem',transportadora:'Um romaneio por transportadora',retirada:'Cliente retira',evento:'Informe o nome do evento'};
+const MOD_PADRAO=[
+  {id:'correios',nome:'Correios',tipo:'correios',ativo:true},
+  {id:'transportadora',nome:'Transportadora',tipo:'transportadora',ativo:true},
+  {id:'retirada',nome:'Retirada em loja',tipo:'retirada',ativo:true},
+  {id:'evento',nome:'Entregue no Evento',tipo:'evento',ativo:true},
+  {id:'motoboy',nome:'Motoboy',tipo:'padrao',ativo:true}];
+let MODS=MOD_PADRAO.map(m=>({...m}));
+const MOD_LEGADO={id:'transportadora',nome:'Transportadora',tipo:'transportadora'};
+function isGestor(){return !MODO_FIREBASE||(!!USER&&(USER.perfil==='gestor'||String(USER.email||'').toLowerCase()===SUPER_GESTOR));}
+function modDe(r){return r&&r.modalidade?r.modalidade:MOD_LEGADO;}
+function modNomeCompleto(m,evento){return m.nome+(m.tipo==='evento'&&evento?' · '+evento:'');}
+async function carregarMods(){try{const l=await DB.getModalidades();if(Array.isArray(l)&&l.length)MODS=l;}catch(e){console.warn('modalidades',e);}preencherFiltrosMod();}
+function preencherFiltrosMod(){for(const id of ['hMod','rMod']){const s=$('#'+id);if(!s)continue;const v=s.value;
+  s.innerHTML='<option value="">Todas</option>'+MODS.map(m=>`<option value="${esc(m.id)}">${esc(m.nome)}${m.ativo===false?' (desativada)':''}</option>`).join('');s.value=v;}}
+function ehCorreios(t){return /CORREIO|EMPRESA BRASILEIRA DE CORREIOS/i.test((t&&t.nome)||'')||onlyDig(t&&t.doc).startsWith('34028316');}
+function alertaModalidade(n,m){const t=n.transportadora||{};const temTransp=!!(t.nome||t.doc)&&t.modFrete!=='9';
+  if(m.tipo==='transportadora')return temTransp?(ehCorreios(t)?'XML indica Correios':''):'XML sem transportadora';
+  if(m.tipo==='correios')return temTransp&&!ehCorreios(t)?`XML indica transportadora ${t.nome||fmtDoc(t.doc)}`:'';
+  return temTransp?`XML indica transportadora ${t.nome||fmtDoc(t.doc)}`:'';}
+const RE_POSTAGEM=/^[A-Z]{2}\d{9}[A-Z]{2}$/;
+
+/* ================= EXPEDIÇÃO ================= */
+let DRAFT=[]; // [{nota, volConf, bipadoMs, rastreio, alertaMod}]
+let SESS={mod:null,evento:''};
+function draftKey(){return 'rnfe_draft_'+(USER?USER.uid:'x');}
+function carregarDraft(){const d=LS.get(draftKey(),[]);
+  if(Array.isArray(d)){DRAFT=d;SESS={mod:d.length?{...MOD_LEGADO}:null,evento:''};}
+  else{DRAFT=d.itens||[];SESS={mod:d.mod||null,evento:d.evento||''};}
+  if(DRAFT.length&&!SESS.mod)SESS.mod={...MOD_LEGADO};}
+function salvarDraft(){LS.set(draftKey(),{mod:SESS.mod,evento:SESS.evento,itens:DRAFT});}
+function resetSessao(){SESS={mod:null,evento:''};salvarDraft();}
+function pendenteRastreio(){return SESS.mod&&SESS.mod.tipo==='correios'?DRAFT.find(d=>!d.rastreio)||null:null;}
+function focarScan(){if($('#tab-exp').classList.contains('hidden'))return;if($('#scanCard').classList.contains('hidden'))return;const a=document.activeElement;if(a&&(a.classList.contains('conf')||a.classList.contains('rast')))return;if(document.querySelector('.modal-bg'))return;$('#scanInput').focus();}
+function feedback(t,c){const m=$('#scanMsg');m.className='feedback '+c;m.innerHTML=t;m.style.display='';}
+
+function renderMod(){const c=$('#modCard');
+  if(!SESS.mod){const ativos=MODS.filter(m=>m.ativo!==false);
+    c.innerHTML=`<h2>Qual a modalidade de envio desta remessa?</h2><p class="muted small" style="margin:-6px 0 12px">Escolha antes de começar a bipar. Todas as NFs desta remessa sairão nesta modalidade.</p>
+      <div class="modgrid">${ativos.map(m=>`<button class="modbtn" data-mod="${esc(m.id)}"><b>${esc(m.nome)}</b>${TIPO_CURTO[m.tipo]?`<span>${esc(TIPO_CURTO[m.tipo])}</span>`:''}</button>`).join('')||'<p class="muted">Nenhuma modalidade ativa. O gestor pode cadastrar na aba Configurações.</p>'}</div>`;
+    $('#scanCard').classList.add('hidden');return;}
+  $('#scanCard').classList.remove('hidden');
+  const m=SESS.mod;
+  c.innerHTML=`<div class="row" style="justify-content:space-between"><div><span class="muted small">Modalidade de envio desta remessa</span>
+    <div class="modatual">${esc(m.nome)}${m.tipo==='evento'?` <span class="pill">${esc(SESS.evento)}</span>`:''}</div>
+    ${m.tipo==='correios'?'<div class="small muted">Para cada NF: bipe a NF e, em seguida, a etiqueta de postagem (código tipo AA123456789BR).</div>':''}</div>
+    <button class="btn sec sm" id="btnTrocarMod" ${DRAFT.length?'disabled title="Remova as NFs bipadas para trocar a modalidade"':''}>Trocar modalidade</button></div>`;
+}
+$('#modCard').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.id==='btnTrocarMod'){if(DRAFT.length)return;resetSessao();renderDraft();return;}
+  const m=MODS.find(x=>x.id===b.dataset.mod);if(!m)return;
+  let evento='';
+  if(m.tipo==='evento'){const rec=LS.get('rnfe_eventos',[]);
+    evento=await dialogo({titulo:'Nome do evento',html:`<p class="muted">Ele sai no romaneio e pode ser usado como filtro no histórico.</p><input type="text" id="dlgEv" list="dlgEvList" style="width:100%" placeholder="Ex.: FullFace 2026"><datalist id="dlgEvList">${rec.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`,
+      botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar',val:bg=>bg.querySelector('#dlgEv').value.trim()||(toast('Informe o nome do evento.','erro'),undefined)}]});
+    if(!evento)return;LS.set('rnfe_eventos',[evento,...rec.filter(x=>x!==evento)].slice(0,15));}
+  SESS={mod:{id:m.id,nome:m.nome,tipo:m.tipo},evento};salvarDraft();renderDraft();feedback(`Modalidade definida: <b>${esc(modNomeCompleto(m,evento))}</b>. Pode começar a bipar.`,'ok');focarScan();});
+
+let processando=false;
+async function processarLeitura(raw){
+  if(processando)return;
+  if(!SESS.mod){$('#scanInput').value='';bip(false);return feedback('Escolha primeiro a modalidade de envio.','err');}
+  const cod=String(raw||'').trim().toUpperCase().replace(/\s/g,'');
+  if(SESS.mod.tipo==='correios'){const pend=pendenteRastreio();
+    if(RE_POSTAGEM.test(cod)){$('#scanInput').value='';
+      if(!pend){bip(false);return feedback('Nenhuma NF aguardando código de postagem. Bipe primeiro a NF.','warn');}
+      const dup=DRAFT.find(d=>d.rastreio===cod);if(dup){bip(false);return feedback(`O código ${esc(cod)} já foi usado na NF ${esc(dup.nota.numero)}.`,'err');}
+      pend.rastreio=cod;salvarDraft();renderDraft();bip(true);
+      return feedback(`✔ Código de postagem ${esc(cod)} vinculado à NF ${esc(pend.nota.numero)}. Pode bipar a próxima NF.`,'ok');}
+    if(pend){$('#scanInput').value='';bip(false);return feedback(`Bipe agora a <b>etiqueta de postagem</b> da NF ${esc(pend.nota.numero)} (código tipo AA123456789BR).`,'warn');}
+  }
+  const ch=extrairChave(raw);$('#scanInput').value='';
+  if(!ch){bip(false);return feedback('Leitura não reconhecida. Bipe o código de barras do DANFE ou o QR code da nota.','err');}
+  if(!chaveValida(ch)){bip(false);return feedback('Chave de acesso inválida (dígito verificador não confere). Tente bipar novamente.','err');}
+  if(DRAFT.some(d=>d.nota.chave===ch)){const k=decodificarChave(ch);bip(false);return feedback(`NF ${esc(k.numero)} já foi bipada nesta remessa.`,'warn');}
+  processando=true;
+  try{
+    const n=await DB.getNota(ch);
+    if(!n){const k=decodificarChave(ch);bip(false);return feedback(`NF ${esc(k.numero)} (série ${esc(k.serie)}) não está na base. Importe o XML na aba <b>Base de XMLs</b> e bipe novamente.`,'err');}
+    if(n.romaneioId){bip(false);return feedback(`BLOQUEADO: NF ${esc(n.numero)} já está no romaneio Nº ${pad(n.romaneioNumero)}. Cancele aquele romaneio no Histórico se precisar reenviar.`,'err');}
+    const alertaMod=alertaModalidade(n,SESS.mod);
+    DRAFT.unshift({nota:n,volConf:'',bipadoMs:Date.now(),rastreio:'',alertaMod});salvarDraft();renderDraft();bip(true);
+    let aviso='';if(alertaMod)aviso+=` · ATENÇÃO: ${alertaMod} (remessa: ${SESS.mod.nome})`;if(!n.autorizada)aviso+=' · ATENÇÃO: XML sem protocolo de autorização';if(!n.temVolume)aviso+=' · XML sem quantidade de volumes';
+    const prox=SESS.mod.tipo==='correios'?' <b>Agora bipe a etiqueta de postagem.</b>':'';
+    feedback(`✔ NF ${esc(n.numero)} · ${esc(n.cliente.nome)} · ${n.volumes} vol.${esc(aviso)}${prox}`,aviso?'warn':'ok');
+  }catch(err){bip(false);feedback('Erro ao consultar a base: '+esc(err.message),'err');}
+  finally{processando=false;focarScan();}
+}
+let scanTimer=null;
+$('#scanInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(scanTimer);processarLeitura(e.target.value);}});
+$('#scanInput').addEventListener('input',e=>{clearTimeout(scanTimer);const v=e.target.value;if(/^\d{44}$/.test(v.trim()))scanTimer=setTimeout(()=>processarLeitura(v),150);});
+
+function grupos(){if(!SESS.mod||!DRAFT.length)return [];const m=SESS.mod;const base={modalidade:{id:m.id,nome:m.nome,tipo:m.tipo},evento:SESS.evento||''};
+  if(m.tipo!=='transportadora')return [{...base,key:'MOD',transportadora:{nome:modNomeCompleto(m,SESS.evento),doc:'',modFreteDesc:''},itens:DRAFT.slice()}];
+  const g=new Map();for(const it of DRAFT){const k=transpKey(it.nota.transportadora);if(!g.has(k))g.set(k,{...base,key:k,transportadora:{nome:transpNome(it.nota.transportadora),doc:it.nota.transportadora?.doc||'',modFreteDesc:it.nota.transportadora?.modFreteDesc||''},itens:[]});g.get(k).itens.push(it);}return [...g.values()];}
+function renderDraft(){
+  renderMod();
+  $('#regraRom').innerHTML=SESS.mod&&SESS.mod.tipo==='transportadora'?'Será gerado <b>um romaneio por transportadora</b>.':'Será gerado <b>um romaneio</b> com todas as NFs desta remessa.';
+  const isC=SESS.mod&&SESS.mod.tipo==='correios';const pend=pendenteRastreio();
+  $('#scanInput').placeholder=pend?`Aguardando etiqueta de postagem da NF ${pend.nota.numero}…`:'Aguardando leitura… (ou digite a chave de 44 dígitos e Enter)';
+  const gs=grupos();const volX=DRAFT.reduce((a,b)=>a+b.nota.volumes,0);const conf=DRAFT.filter(d=>d.volConf!=='');const volC=conf.reduce((a,b)=>a+nInt(b.volConf),0);
+  const div=conf.filter(d=>nInt(d.volConf)!==d.nota.volumes).length;const semR=isC?DRAFT.filter(d=>!d.rastreio).length:0;
+  $('#expStats').innerHTML=SESS.mod?`<div class="stat"><b>${DRAFT.length}</b><span>NFs bipadas</span></div><div class="stat"><b>${gs.length}</b><span>Romaneio(s) a gerar</span></div><div class="stat"><b>${volX}</b><span>Volumes no XML</span></div><div class="stat"><b>${conf.length}/${DRAFT.length}</b><span>NFs conferidas · ${volC} vol.</span></div><div class="stat"><b style="color:${div?'var(--err)':'inherit'}">${div}</b><span>Divergências</span></div>${isC?`<div class="stat"><b style="color:${semR?'var(--err)':'inherit'}">${DRAFT.length-semR}/${DRAFT.length}</b><span>Com código de postagem</span></div>`:''}`:'';
+  if(!SESS.mod){$('#draftArea').innerHTML='<div class="empty">Escolha a modalidade de envio acima para começar.</div>';return;}
+  if(!DRAFT.length){$('#draftArea').innerHTML='<div class="empty">Nenhuma NF bipada ainda.</div>';return;}
+  $('#draftArea').innerHTML=gs.map(g=>{
+    const vx=g.itens.reduce((a,b)=>a+b.nota.volumes,0);
+    return `<div class="grp-head"><h3>${esc(g.transportadora.nome)}</h3>${g.transportadora.doc?`<span class="pill">${esc(fmtDoc(g.transportadora.doc))}</span>`:''}<span class="pill">${g.itens.length} NF · ${vx} vol.</span></div>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th>${isC?'<th>Código de postagem</th>':''}<th class="num">Vol. XML</th><th class="num">Vol. conferido</th><th></th></tr></thead><tbody>
+    ${g.itens.map(it=>{const n=it.nota;const d=it.volConf!==''&&nInt(it.volConf)!==n.volumes;
+      return `<tr class="${d?'div':''}"><td><b>${esc(n.numero)}</b><div class="small muted">Série ${esc(n.serie)}</div>${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}${it.alertaMod?`<div><span class="pill warn" title="${esc(it.alertaMod)}">${esc(it.alertaMod)}</span></div>`:''}</td>
+      <td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}<div class="small muted">${esc(fmtDoc(n.cliente.doc))}</div></td>
+      <td>${esc(enderecoStr(n.endereco))}<div class="small muted">${esc(cidadeUf(n.endereco))} · CEP ${esc(fmtCep(n.endereco.cep))}</div></td>
+      ${isC?`<td><input class="rast" type="text" data-ch="${n.chave}" value="${esc(it.rastreio||'')}" placeholder="bipe a etiqueta" maxlength="13">${it.rastreio?'':'<div><span class="pill err">aguardando etiqueta</span></div>'}</td>`:''}
+      <td class="num">${n.volumes}${n.especie?`<div class="small muted">${esc(n.especie)}</div>`:''}</td>
+      <td class="num"><input class="conf" type="number" min="0" step="1" data-ch="${n.chave}" value="${esc(it.volConf)}" placeholder="—"> <button class="btn sec sm" data-igual="${n.chave}" title="Conferido igual ao XML">= XML</button>${d?`<div class="small" style="color:var(--err);font-weight:700">Dif.: ${nInt(it.volConf)-n.volumes>0?'+':''}${nInt(it.volConf)-n.volumes}</div>`:''}</td>
+      <td><button class="btn sec sm" data-rm="${n.chave}" title="Remover da remessa">✕</button></td></tr>`;}).join('')}
+    </tbody></table></div>`;}).join('');
+}
+$('#draftArea').addEventListener('change',e=>{const el=e.target;const it=DRAFT.find(d=>d.nota.chave===el.dataset.ch);if(!it)return;
+  if(el.classList.contains('conf')){const v=el.value.trim();it.volConf=v===''?'':String(Math.max(0,nInt(v)));salvarDraft();renderDraft();focarScan();}
+  if(el.classList.contains('rast')){const v=el.value.trim().toUpperCase().replace(/\s/g,'');
+    if(v&&!RE_POSTAGEM.test(v)){toast('Código de postagem inválido. Formato esperado: AA123456789BR.','erro');el.value=it.rastreio||'';return;}
+    const dup=v&&DRAFT.find(d=>d!==it&&d.rastreio===v);if(dup){toast(`Código já usado na NF ${dup.nota.numero}.`,'erro');el.value=it.rastreio||'';return;}
+    it.rastreio=v;salvarDraft();renderDraft();$('#scanInput').focus();}});
+$('#draftArea').addEventListener('keydown',e=>{if((e.target.classList.contains('conf')||e.target.classList.contains('rast'))&&e.key==='Enter'){e.preventDefault();e.target.blur();$('#scanInput').focus();}});
+$('#draftArea').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.igual){const it=DRAFT.find(d=>d.nota.chave===b.dataset.igual);it.volConf=String(it.nota.volumes);salvarDraft();renderDraft();$('#scanInput').focus();}
+  if(b.dataset.rm){DRAFT=DRAFT.filter(d=>d.nota.chave!==b.dataset.rm);salvarDraft();renderDraft();$('#scanInput').focus();}});
+$('#btnLimpar').onclick=async()=>{if(!DRAFT.length&&!SESS.mod)return;const ok=await dialogo({titulo:'Limpar remessa?',html:'<p>Todas as NFs bipadas serão removidas da montagem e a modalidade será desmarcada (nada é gravado).</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Limpar',val:true,cls:'danger'}]});
+  if(ok){DRAFT=[];resetSessao();renderDraft();$('#scanMsg').style.display='none';}focarScan();};
+$('#btnFinalizar').onclick=async()=>{
+  if(!SESS.mod)return toast('Escolha a modalidade de envio.','erro');
+  if(!DRAFT.length)return toast('Bipe ao menos uma NF.','erro');
+  if(SESS.mod.tipo==='correios'){const semR=DRAFT.filter(d=>!d.rastreio);
+    if(semR.length){await dialogo({titulo:'Faltam códigos de postagem',html:`<p>Bipe a etiqueta de postagem das NFs: <b>${semR.map(f=>esc(f.nota.numero)).join(', ')}</b>.</p>`});return focarScan();}}
+  const falta=DRAFT.filter(d=>d.volConf==='');
+  if(falta.length){await dialogo({titulo:'Conferência incompleta',html:`<p>Informe os volumes conferidos das NFs: <b>${falta.map(f=>esc(f.nota.numero)).join(', ')}</b>.</p><p class="muted small">Use o botão “= XML” quando a contagem física bater com a nota.</p>`});return focarScan();}
+  const gs=grupos();const div=DRAFT.filter(d=>nInt(d.volConf)!==d.nota.volumes);const alertas=DRAFT.filter(d=>d.alertaMod);
+  const ok=await dialogo({titulo:'Finalizar remessa',html:`<p>Modalidade: <b>${esc(modNomeCompleto(SESS.mod,SESS.evento))}</b></p><p>Serão gerados <b>${gs.length} romaneio(s)</b>:</p><ul>${gs.map(g=>`<li>${esc(g.transportadora.nome)}: ${g.itens.length} NF, ${g.itens.reduce((a,b)=>a+nInt(b.volConf),0)} vol. conferidos</li>`).join('')}</ul>
+    ${div.length?`<p class="feedback warn" style="display:block">${div.length} NF com divergência de volumes. A diferença será registrada no romaneio.</p>`:''}
+    ${alertas.length?`<p class="feedback warn" style="display:block">${alertas.length} NF com modalidade diferente da indicada no XML. Isso ficará registrado no romaneio.</p>`:''}<p>Responsável pela remessa: <b>${esc(USER.nome)}</b></p>`,
+    botoes:[{txt:'Voltar',val:false,cls:'sec'},{txt:'Gerar romaneios',val:true,cls:'ok'}]});
+  if(!ok)return focarScan();
+  $('#btnFinalizar').disabled=true;const gerados=[],erros=[];
+  for(const g of gs){try{const r=await DB.finalizarGrupo(g,{uid:USER.uid,nome:USER.nome,email:USER.email||''});gerados.push(r);const chs=new Set(g.itens.map(i=>i.nota.chave));DRAFT=DRAFT.filter(d=>!chs.has(d.nota.chave));salvarDraft();}
+    catch(err){erros.push(`${g.transportadora.nome}: ${err.message}`);}}
+  if(!DRAFT.length)resetSessao();
+  $('#btnFinalizar').disabled=false;renderDraft();
+  if(erros.length)await dialogo({titulo:'Alguns romaneios não foram gerados',html:`<ul>${erros.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><p class="muted small">As NFs desses grupos continuam na montagem.</p>`});
+  if(gerados.length){feedback(`✔ ${gerados.length} romaneio(s) gerado(s): ${gerados.map(r=>'Nº '+pad(r.numero)).join(', ')}`,'ok');
+    const p=await dialogo({titulo:'Romaneios gerados',html:`<p>${gerados.map(r=>`<b>Nº ${pad(r.numero)}</b>: ${esc(r.transportadora.nome)} (${r.totais.nfs} NF, ${r.totais.volConf} vol.)`).join('<br>')}</p><p class="muted small">Na janela de impressão, escolha a impressora ou “Salvar como PDF”.</p>`,botoes:[{txt:'Depois',val:false,cls:'sec'},{txt:'Imprimir / Salvar PDF',val:true}]});
+    if(p)imprimirRomaneios(gerados);}
+  focarScan();
+};
+document.addEventListener('click',e=>{if(!e.target.closest('input,select,button,textarea,a,.modal-bg'))setTimeout(focarScan,50);});
+
+/* ---------- Câmera ---------- */
+let camLib=null;
+function carregarCamLib(){if(camLib)return camLib;camLib=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';s.onload=ok;s.onerror=()=>{camLib=null;no(new Error('não foi possível carregar o leitor da câmera'));};document.head.appendChild(s);});return camLib;}
+$('#btnCam').onclick=async()=>{
+  try{await carregarCamLib();}catch(e){return toast(e.message,'erro');}
+  const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML=`<div class="modal"><h3>Leitura pela câmera</h3><div id="camBox"></div><p class="muted small">Aponte para o QR code ou para o código de barras do DANFE. A leitura é contínua: vá bipando as notas.</p><div class="feedback" id="camMsg"></div><div class="acts"><button class="btn" id="camFechar">Fechar</button></div></div>`;
+  document.body.appendChild(bg);
+  const F=Html5QrcodeSupportedFormats;const cam=new Html5Qrcode('camBox',{formatsToSupport:[F.QR_CODE,F.CODE_128],verbose:false});
+  let ultimo='',ultMs=0;
+  const fechar=async()=>{try{await cam.stop();}catch(e){}bg.remove();focarScan();};
+  bg.querySelector('#camFechar').onclick=fechar;
+  try{await cam.start({facingMode:'environment'},{fps:10,qrbox:(w,h)=>({width:Math.min(w*.9,420),height:Math.min(h*.6,220)})},async txt=>{
+      const now=Date.now();if(txt===ultimo&&now-ultMs<3000)return;ultimo=txt;ultMs=now;
+      await processarLeitura(txt);const m=$('#scanMsg');const cm=bg.querySelector('#camMsg');if(cm){cm.className=m.className;cm.innerHTML=m.innerHTML;}},()=>{});}
+  catch(err){bg.querySelector('#camMsg').className='feedback err';bg.querySelector('#camMsg').textContent='Não foi possível abrir a câmera: '+err;}
+};
+
+/* ================= BASE DE XMLs ================= */
+const drop=$('#drop');
+drop.onclick=()=>$('#fileInput').click();
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');importarArquivos([...e.dataTransfer.files]);});
+$('#fileInput').onchange=e=>{importarArquivos([...e.target.files]);e.target.value='';};
+async function lerTexto(buf){ // respeita encoding declarado (UTF-8 ou ISO-8859-1)
+  const head=new TextDecoder('ascii').decode(buf.slice(0,200));const m=head.match(/encoding=["']([\w-]+)["']/i);
+  try{return new TextDecoder(m?m[1]:'utf-8').decode(buf);}catch(e){return new TextDecoder('utf-8').decode(buf);}}
+async function importarArquivos(files){
+  if(!files.length)return;const res=$('#importResult');res.innerHTML='<p class="muted">Lendo arquivos…</p>';
+  const notas=[],erros=[];const vistos=new Set();
+  const tratar=(nome,texto)=>{try{const n=parseNFe(texto,nome);if(vistos.has(n.chave))return;vistos.add(n.chave);notas.push(n);}catch(e){erros.push(`${nome}: ${e.message}`);}};
+  for(const f of files){
+    try{
+      if(/\.zip$/i.test(f.name)){if(typeof JSZip==='undefined'){erros.push(f.name+': leitor de .zip indisponível');continue;}
+        const zip=await JSZip.loadAsync(f);for(const ent of Object.values(zip.files)){if(ent.dir||!/\.xml$/i.test(ent.name))continue;tratar(ent.name.split('/').pop(),await lerTexto(await ent.async('uint8array')));}}
+      else if(/\.xml$/i.test(f.name)||f.type.includes('xml')){tratar(f.name,await lerTexto(new Uint8Array(await f.arrayBuffer())));}
+      else erros.push(`${f.name}: formato não suportado (use .xml ou .zip)`);
+    }catch(e){erros.push(`${f.name}: ${e.message}`);}
+  }
+  let r={novas:0,atual:0};
+  if(notas.length){res.innerHTML=`<p class="muted">Gravando ${notas.length} nota(s)…</p>`;try{r=await DB.importarNotas(notas);}catch(e){erros.push('Falha ao gravar: '+e.message);}
+    const prods={};notas.forEach(n=>(n.itens||[]).forEach(i=>{if(i.ean&&i.cProd)prods[i.cProd]={cProd:i.cProd,ean:i.ean,descricao:i.xProd,origem:'xml',atualizadoMs:Date.now()};}));
+    const lp=Object.values(prods);if(lp.length){try{await DB.salvarProdutos(lp);}catch(e){console.warn('produtos',e);}}}
+  const semProt=notas.filter(n=>!n.autorizada).length;
+  res.innerHTML=`<div class="feedback ${erros.length?'warn':'ok'}" style="display:block">${r.novas} nota(s) nova(s) · ${r.atual} atualizada(s)${semProt?` · ${semProt} sem protocolo de autorização`:''}${erros.length?` · ${erros.length} arquivo(s) ignorado(s)`:''}</div>
+    ${erros.length?`<details style="margin-top:8px"><summary class="small">Ver arquivos ignorados</summary><ul class="small">${erros.slice(0,200).map(e=>`<li>${esc(e)}</li>`).join('')}</ul></details>`:''}`;
+  if(notas.length)toast(`${notas.length} nota(s) importada(s)`,'ok');
+  listarBase();
+}
+async function listarBase(){
+  const area=$('#baseList');area.innerHTML='<p class="muted">Carregando…</p>';
+  try{const a=await DB.listarNotas($('#baseBusca').value);
+    if(!a.length){area.innerHTML='<div class="empty">Nenhuma nota encontrada.</div>';return;}
+    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Situação</th></tr></thead><tbody>
+    ${a.map(n=>`<tr><td><b>${esc(n.numero)}</b> <span class="small muted">s.${esc(n.serie)}</span></td><td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}</td><td>${esc(cidadeUf(n.endereco))}</td><td>${esc(transpNome(n.transportadora))}</td><td class="num">${n.volumes}</td>
+      <td>${n.romaneioId?`<span class="pill ok">Romaneio Nº ${pad(n.romaneioNumero)}</span>`:'<span class="pill">Disponível</span>'} ${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td></tr>`).join('')}</tbody></table>
+    <p class="muted small">${a.length} nota(s) exibida(s)${a.length>=300?' (as mais recentes; use a busca para encontrar outras)':''}.</p>`;
+  }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
+}
+$('#btnBaseBuscar').onclick=listarBase;$('#baseBusca').addEventListener('keydown',e=>{if(e.key==='Enter')listarBase();});
+
+/* ================= PERÍODOS ================= */
+function periodo(p){const h=new Date();let de,ate=isoHoje(h);
+  if(p==='hoje')de=ate;else if(p==='7'){const d=new Date(h);d.setDate(d.getDate()-6);de=isoHoje(d);}
+  else if(p==='mes')de=isoHoje(new Date(h.getFullYear(),h.getMonth(),1));
+  else if(p==='mesant'){de=isoHoje(new Date(h.getFullYear(),h.getMonth()-1,1));ate=isoHoje(new Date(h.getFullYear(),h.getMonth(),0));}
+  return {de,ate};}
+function rangeMs(de,ate){return [new Date(de+'T00:00:00').getTime(),new Date(ate+'T23:59:59.999').getTime()];}
+$$('[data-periodo-for]').forEach(box=>box.addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;const {de,ate}=periodo(b.dataset.p);const x=box.dataset.periodoFor;
+  $('#'+x+'De').value=de;$('#'+x+'Ate').value=ate;x==='h'?pesquisarHist():gerarRel();}));
+(()=>{const p=periodo('mes');$('#hDe').value=p.de;$('#hAte').value=p.ate;$('#rDe').value=p.de;$('#rAte').value=p.ate;})();
+
+/* ================= HISTÓRICO ================= */
+let HIST=[];
+function filtraMod(a,sel){const v=$(sel).value;return v?a.filter(r=>modDe(r).id===v):a;}
+async function pesquisarHist(){
+  const area=$('#histList');const de=$('#hDe').value,ate=$('#hAte').value;if(!de||!ate)return toast('Informe o período.','erro');
+  area.innerHTML='<p class="muted">Carregando…</p>';
+  try{let a=await DB.listarRomaneios(...rangeMs(de,ate));
+    const st=$('#hStatus').value;if(st)a=a.filter(r=>r.status===st);
+    a=filtraMod(a,'#hMod');
+    const b=$('#hBusca').value.trim().toUpperCase();
+    if(b){const d=onlyDig(b);a=a.filter(r=>(d&&(String(r.numero)===String(+d)||r.itens.some(i=>i.numero===String(+d)||i.chave===d)))||(r.transportadora.nome||'').toUpperCase().includes(b)||(r.evento||'').toUpperCase().includes(b)||r.itens.some(i=>(i.cliente.nome||'').toUpperCase().includes(b)||(i.rastreio||'').includes(b))||(r.responsavel.nome||'').toUpperCase().includes(b));}
+    HIST=a;
+    if(!a.length){area.innerHTML='<div class="empty">Nenhum romaneio no período.</div>';return;}
+    area.innerHTML=`<table class="t"><thead><tr><th>Romaneio</th><th>Data/hora</th><th>Modalidade</th><th>Transportadora / destino</th><th class="num">NFs</th><th class="num">Vol. conf.</th><th>Divergências</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody>
+    ${a.map(r=>`<tr><td><b>Nº ${pad(r.numero)}</b></td><td>${fmtDataHora(r.criadoMs)}</td><td><span class="pill">${esc(modDe(r).nome)}</span></td><td>${esc(r.transportadora.nome)}</td><td class="num">${r.totais.nfs}</td><td class="num">${r.totais.volConf}</td>
+      <td>${r.totais.divergencias?`<span class="pill warn">${r.totais.divergencias}</span>`:'<span class="muted">—</span>'}</td><td>${esc(r.responsavel.nome)}</td>
+      <td>${r.status==='cancelado'?'<span class="pill err">Cancelado</span>':'<span class="pill ok">Ativo</span>'}</td>
+      <td style="white-space:nowrap"><button class="btn sec sm" data-ver="${esc(r.id)}">Ver</button> <button class="btn sec sm" data-imp="${esc(r.id)}">Imprimir</button></td></tr>`).join('')}</tbody></table>
+      <p class="muted small">${a.length} romaneio(s).</p>`;
+  }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
+}
+$('#btnHist').onclick=pesquisarHist;$('#hBusca').addEventListener('keydown',e=>{if(e.key==='Enter')pesquisarHist();});
+$('#hMod').addEventListener('change',pesquisarHist);
+$('#histList').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  const r=HIST.find(x=>x.id===(b.dataset.ver||b.dataset.imp));if(!r)return;
+  if(b.dataset.imp)return imprimirRomaneios([r]);
+  const isC=modDe(r).tipo==='correios';
+  const v=await dialogo({titulo:`Romaneio Nº ${pad(r.numero)} · ${r.transportadora.nome}`,
+    html:`<p class="small">Modalidade: <b>${esc(modNomeCompleto(modDe(r),r.evento))}</b><br>Gerado em ${fmtDataHora(r.criadoMs)} por <b>${esc(r.responsavel.nome)}</b>${r.status==='cancelado'?`<br><span class="pill err">Cancelado</span> em ${fmtDataHora(r.cancelamento.em)} por ${esc(r.cancelamento.por)}: ${esc(r.cancelamento.motivo)}`:''}</p>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Cliente</th><th>Cidade/UF</th>${isC?'<th>Postagem</th>':''}<th class="num">XML</th><th class="num">Conf.</th></tr></thead><tbody>
+    ${r.itens.map(i=>`<tr class="${i.volXml!==i.volConf?'div':''}"><td>${esc(i.numero)}${i.alertaMod?` <span class="pill warn">${esc(i.alertaMod)}</span>`:''}</td><td>${esc(i.cliente.nome)}</td><td>${esc(cidadeUf(i.endereco))}</td>${isC?`<td class="mono">${esc(i.rastreio||'')}</td>`:''}<td class="num">${i.volXml}</td><td class="num">${i.volConf}</td></tr>`).join('')}</tbody></table></div>`,
+    botoes:[...(r.status==='ativo'?[{txt:'Cancelar romaneio',val:'cancel',cls:'danger'}]:[]),{txt:'Fechar',val:null,cls:'sec'},{txt:'Imprimir / PDF',val:'print'}]});
+  if(v==='print')imprimirRomaneios([r]);
+  if(v==='cancel'){const motivo=await dialogo({titulo:`Cancelar romaneio Nº ${pad(r.numero)}?`,html:'<p>As NFs voltam a ficar disponíveis para um novo romaneio. O romaneio cancelado continua no histórico.</p><label class="f">Motivo<input type="text" id="dlgMot" style="width:100%"></label>',
+      botoes:[{txt:'Voltar',val:null,cls:'sec'},{txt:'Confirmar cancelamento',cls:'danger',val:bg=>bg.querySelector('#dlgMot').value.trim()||(toast('Informe o motivo.','erro'),undefined)}]});
+    if(motivo){try{await DB.cancelarRomaneio(r.id,motivo,USER);toast('Romaneio cancelado.','ok');pesquisarHist();}catch(err){toast('Erro: '+err.message,'erro');}}}
+});
+
+/* ================= IMPRESSÃO DO ROMANEIO ================= */
+function blocoColeta(r,m){
+  const L=(a,b)=>`<div class="ln"><span>${a}:</span><i></i>${b?`<span>${b}:</span><i></i>`:''}</div>`;
+  const volAss='<div class="ln"><span>Volumes recebidos:</span><i style="flex:.4"></i><span>Assinatura:</span><i></i></div>';
+  switch(m.tipo){
+    case 'transportadora':return `<h4>Coleta (transportadora): declaro ter recebido os volumes acima em perfeito estado</h4>${L('Nome','RG/CPF')}${L('Placa do veículo','Data/hora da coleta')}${volAss}`;
+    case 'correios':return `<h4>Postagem (${esc(m.nome)}): declaro ter recebido os volumes acima para postagem</h4>${L('Nome do atendente','Matrícula')}${L('Agência','Data/hora da postagem')}<div class="ln"><span>Volumes recebidos:</span><i style="flex:.4"></i><span>Assinatura / carimbo:</span><i></i></div>`;
+    case 'retirada':return `<h4>${esc(m.nome)}: declaro ter retirado os volumes acima em perfeito estado</h4>${L('Retirado por (nome)','RG/CPF')}${L('Data/hora da retirada','')}${volAss}`;
+    case 'evento':return `<h4>${esc(m.nome)}${r.evento?' · '+esc(r.evento):''}: declaro ter recebido os volumes acima em perfeito estado</h4>${L('Recebido por (nome)','RG/CPF')}${L('Data/hora do recebimento','')}${volAss}`;
+    default:return `<h4>Coleta (${esc(m.nome)}): declaro ter recebido os volumes acima em perfeito estado</h4>${L('Nome','RG/CPF')}${L('Placa do veículo','Data/hora da coleta')}${volAss}`;
+  }
+}
+function htmlRomaneio(r){
+  const t=r.totais,m=modDe(r),isC=m.tipo==='correios',isT=m.tipo==='transportadora';const temAlerta=r.itens.some(i=>i.alertaMod);
+  return `<div class="rp">
+  ${r.status==='cancelado'?`<div class="canc">ROMANEIO CANCELADO em ${fmtDataHora(r.cancelamento.em)} por ${esc(r.cancelamento.por)}: ${esc(r.cancelamento.motivo)}</div>`:''}
+  <div class="h"><div><div class="tit">ROMANEIO DE EXPEDIÇÃO · ${esc(m.nome.toUpperCase())}</div><div>${esc(r.emitente?.nome||'')}${r.emitente?.doc?' · CNPJ '+esc(fmtDoc(r.emitente.doc)):''}</div></div>
+    <div class="nro">Nº ${pad(r.numero)}<div style="font-size:11px;font-weight:400">Emitido em ${fmtDataHora(r.criadoMs)}</div></div></div>
+  <div class="info">
+    <div><b>Modalidade de envio</b>${esc(m.nome)}</div>
+    ${isT?`<div><b>Transportadora</b>${esc(r.transportadora.nome)}</div><div><b>CNPJ/CPF transportadora</b>${esc(fmtDoc(r.transportadora.doc))||'—'}</div>`:m.tipo==='evento'?`<div><b>Evento</b>${esc(r.evento||'—')}</div><div></div>`:'<div></div><div></div>'}
+    <div><b>Responsável pela remessa</b>${esc(r.responsavel.nome)}${r.responsavel.email?'<br>'+esc(r.responsavel.email):''}</div>
+    <div><b>Total de NFs</b>${t.nfs}</div>
+    <div><b>Volumes (XML / conferidos)</b>${t.volXml} / ${t.volConf}</div>
+    <div><b>Divergências de volume</b>${t.divergencias||'Nenhuma'}</div>
+    <div><b>Peso bruto total (XML)</b>${t.peso?t.peso.toLocaleString('pt-BR')+' kg':'—'}</div>
+    ${isT?`<div><b>Modalidade do frete (XML)</b>${esc(r.transportadora.modFreteDesc||'—')}</div>`:''}
+  </div>
+  <table><thead><tr><th>#</th><th>NF / Série</th><th>Emissão</th><th>Cliente</th><th>Endereço de cadastro</th><th>Chave de acesso</th>${isC?'<th>Cód. postagem</th>':''}<th>Vol. XML</th><th>Vol. conf.</th></tr></thead><tbody>
+  ${r.itens.map((i,k)=>`<tr><td class="n">${k+1}</td><td><b>${esc(i.numero)}</b> / ${esc(i.serie)}${i.alertaMod?' (*)':''}</td><td>${fmtData(i.dataEmissao)}</td>
+    <td><b>${esc(i.cliente.nome)}</b><br>${esc(fmtDoc(i.cliente.doc))}</td>
+    <td>${esc(enderecoStr(i.endereco))}<br>${esc(cidadeUf(i.endereco))} · CEP ${esc(fmtCep(i.endereco.cep))}</td>
+    <td class="ch">${fmtChave(i.chave)}</td>${isC?`<td><b>${esc(i.rastreio||'')}</b></td>`:''}<td class="n">${i.volXml}</td><td class="n ${i.volXml!==i.volConf?'dv':''}">${i.volConf}${i.volXml!==i.volConf?' (!)':''}</td></tr>`).join('')}
+  </tbody><tfoot><tr><td colspan="${isC?7:6}">TOTAL: ${t.nfs} nota(s) fiscal(is)</td><td class="n">${t.volXml}</td><td class="n">${t.volConf}</td></tr></tfoot></table>
+  ${t.divergencias?`<p style="margin:6px 0 0"><b>(!)</b> Volume conferido fisicamente diferente do informado no XML da NF.</p>`:''}
+  ${temAlerta?`<p style="margin:4px 0 0"><b>(*)</b> NF enviada em modalidade diferente da indicada no XML: ${r.itens.filter(i=>i.alertaMod).map(i=>esc(i.numero)+' ('+esc(i.alertaMod)+')').join('; ')}.</p>`:''}
+  <div class="ass">
+    <div class="box"><h4>Expedição (responsável pela remessa)</h4><div>${esc(r.responsavel.nome)}</div>
+      <div class="ln"><span>Assinatura:</span><i></i></div><div class="ln"><span>Data/hora:</span><i></i></div></div>
+    <div class="box">${blocoColeta(r,m)}</div>
+  </div>
+  <div class="rod"><span>Romaneio Nº ${pad(r.numero)} · ${isT?esc(m.nome)+' · ':''}${esc(r.transportadora.nome)}</span><span>Documento para rastreabilidade · gerado pelo sistema Romaneio NF-e · ID ${esc(r.id)}</span></div>
+  </div>`;
+}
+function imprimirHtml(html,titulo){const pa=$('#print-area');pa.innerHTML=html;const tOld=document.title;document.title=titulo;
+  setTimeout(()=>{window.print();document.title=tOld;},100);}
+function imprimirRomaneios(rs){imprimirHtml(rs.map(htmlRomaneio).join(''),rs.length===1?`Romaneio ${pad(rs[0].numero)} - ${rs[0].transportadora.nome}`:`Romaneios ${rs.map(r=>pad(r.numero)).join('-')}`);}
+
+/* ================= RELATÓRIOS ================= */
+let REL=[];
+async function gerarRel(){
+  const de=$('#rDe').value,ate=$('#rAte').value;if(!de||!ate)return toast('Informe o período.','erro');
+  const area=$('#relArea');area.innerHTML='<div class="card muted">Carregando…</div>';
+  try{REL=filtraMod(await DB.listarRomaneios(...rangeMs(de,ate)),'#rMod');area.innerHTML=htmlRelatorio(REL,de,ate,false);}
+  catch(e){area.innerHTML=`<div class="card feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
+}
+$('#rMod').addEventListener('change',gerarRel);
+function agregaRel(rs){const at=rs.filter(r=>r.status==='ativo');const por=new Map(),porResp=new Map(),porMod=new Map();const divs=[];
+  const soma=(map,k,r)=>{if(!map.has(k))map.set(k,{nome:k,rom:0,nfs:0,vx:0,vc:0,div:0});const p=map.get(k);p.rom++;p.nfs+=r.totais.nfs;p.vx+=r.totais.volXml;p.vc+=r.totais.volConf;p.div+=r.totais.divergencias;};
+  for(const r of at){soma(por,r.transportadora.nome,r);soma(porMod,modDe(r).nome,r);soma(porResp,r.responsavel.nome,r);
+    for(const i of r.itens)if(i.volXml!==i.volConf)divs.push({r,i});}
+  const tot=[...por.values()].reduce((a,p)=>({rom:a.rom+p.rom,nfs:a.nfs+p.nfs,vx:a.vx+p.vx,vc:a.vc+p.vc,div:a.div+p.div}),{rom:0,nfs:0,vx:0,vc:0,div:0});
+  const ord=m=>[...m.values()].sort((a,b)=>b.nfs-a.nfs);
+  return {at,canc:rs.length-at.length,por:ord(por),porMod:ord(porMod),porResp:ord(porResp),divs,tot};}
+function htmlRelatorio(rs,de,ate,print){
+  const A=agregaRel(rs);const T=A.tot;
+  if(!print&&!rs.length)return '<div class="card empty">Nenhum romaneio no período.</div>';
+  const tbl=print?'':'t';
+  const tabela=(titulo,lista)=>`<table class="${tbl}"><thead><tr><th>${titulo}</th><th class="num">Romaneios</th><th class="num">NFs</th><th class="num">Vol. XML</th><th class="num">Vol. conferidos</th><th class="num">NFs com divergência</th></tr></thead><tbody>
+    ${lista.map(p=>`<tr><td>${esc(p.nome)}</td><td class="num n">${p.rom}</td><td class="num n">${p.nfs}</td><td class="num n">${p.vx}</td><td class="num n">${p.vc}</td><td class="num n">${p.div}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td class="num n">${T.rom}</td><td class="num n">${T.nfs}</td><td class="num n">${T.vx}</td><td class="num n">${T.vc}</td><td class="num n">${T.div}</td></tr></tfoot></table>`;
+  const blocoMod=tabela('Modalidade de envio',A.porMod);
+  const blocoTransp=tabela('Transportadora / destino',A.por);
+  const blocoResp=`<table class="${tbl}"><thead><tr><th>Responsável pela remessa</th><th class="num">Romaneios</th><th class="num">NFs</th><th class="num">Vol. conferidos</th></tr></thead><tbody>
+    ${A.porResp.map(p=>`<tr><td>${esc(p.nome)}</td><td class="num n">${p.rom}</td><td class="num n">${p.nfs}</td><td class="num n">${p.vc}</td></tr>`).join('')}</tbody></table>`;
+  const blocoDiv=A.divs.length?`<table class="${tbl}"><thead><tr><th>Romaneio</th><th>Data</th><th>Modalidade</th><th>Transportadora / destino</th><th>NF</th><th>Cliente</th><th class="num">Vol. XML</th><th class="num">Vol. conf.</th><th class="num">Dif.</th></tr></thead><tbody>
+    ${A.divs.map(({r,i})=>`<tr><td>Nº ${pad(r.numero)}</td><td>${fmtDataHora(r.criadoMs)}</td><td>${esc(modDe(r).nome)}</td><td>${esc(r.transportadora.nome)}</td><td>${esc(i.numero)}</td><td>${esc(i.cliente.nome)}</td><td class="num n">${i.volXml}</td><td class="num n">${i.volConf}</td><td class="num n">${i.volConf-i.volXml>0?'+':''}${i.volConf-i.volXml}</td></tr>`).join('')}</tbody></table>`:'<p>Nenhuma divergência no período.</p>';
+  const fm=$('#rMod').value?` · Modalidade: <b>${esc((MODS.find(m=>m.id===$('#rMod').value)||{}).nome||'')}</b>`:'';
+  const resumo=`Período: <b>${fmtData(de)} a ${fmtData(ate)}</b>${fm} · ${T.rom} romaneio(s) ativo(s) · ${T.nfs} NF(s) · ${T.vc} volume(s) conferido(s) · ${T.div} divergência(s)${A.canc?` · ${A.canc} cancelado(s) (fora dos totais)`:''}`;
+  if(print)return `<div class="rp"><div class="h"><div class="tit">RELATÓRIO DE EXPEDIÇÃO</div><div style="text-align:right">Emitido em ${fmtDataHora(Date.now())}<br>por ${esc(USER.nome)}</div></div>
+    <p>${resumo}</p><h4>Por modalidade de envio</h4>${blocoMod}<h4>Por transportadora / destino</h4>${blocoTransp}<h4>Por responsável</h4>${blocoResp}<h4>Divergências de volume</h4>${blocoDiv}</div>`;
+  return `<div class="card"><p style="margin:0">${resumo}</p></div>
+    <div class="card"><h2>Por modalidade de envio</h2><div class="tbl-wrap">${blocoMod}</div></div>
+    <div class="card"><h2>Por transportadora / destino</h2><div class="tbl-wrap">${blocoTransp}</div></div>
+    <div class="card"><h2>Por responsável pela remessa</h2><div class="tbl-wrap">${blocoResp}</div></div>
+    <div class="card"><h2>Divergências de volume</h2><div class="tbl-wrap">${blocoDiv}</div></div>`;
+}
+$('#btnRel').onclick=gerarRel;
+$('#btnRelPrint').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)return;imprimirHtml(htmlRelatorio(REL,$('#rDe').value,$('#rAte').value,true),`Relatorio expedicao ${$('#rDe').value} a ${$('#rAte').value}`);};
+$('#btnCsv').onclick=async()=>{if(!REL.length)await gerarRel();if(!REL.length)return toast('Nada para exportar.','erro');
+  const cab=['Romaneio','Data/hora','Status','Modalidade','Evento','Transportadora/destino','CNPJ transportadora','Responsavel','NF','Serie','Emissao','Cliente','CNPJ/CPF cliente','Endereco','Cidade','UF','CEP','Codigo de postagem','Vol XML','Vol conferido','Diferenca','Alerta modalidade','Chave de acesso'];
+  const q=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const linhas=[cab.join(';')];
+  for(const r of REL)for(const i of r.itens)linhas.push([pad(r.numero),fmtDataHora(r.criadoMs),r.status,modDe(r).nome,r.evento||'',r.transportadora.nome,fmtDoc(r.transportadora.doc),r.responsavel.nome,i.numero,i.serie,fmtData(i.dataEmissao),i.cliente.nome,fmtDoc(i.cliente.doc),enderecoStr(i.endereco),i.endereco.municipio,i.endereco.uf,fmtCep(i.endereco.cep),i.rastreio||'',i.volXml,i.volConf,i.volConf-i.volXml,i.alertaMod||'',"'"+i.chave].map(q).join(';'));
+  const blob=new Blob(['﻿'+linhas.join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`expedicao_${$('#rDe').value}_a_${$('#rAte').value}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);};
+
+/* ================= CONFIGURAÇÕES (GESTOR) ================= */
+$('#cfgTipo').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+function renderCfg(){
+  renderUsuarios();renderCfgEmb();
+  if(!isGestor()){$('#cfgList').innerHTML='<div class="empty">Apenas o gestor pode editar as modalidades.</div>';return;}
+  $('#cfgList').innerHTML=`<table class="t"><thead><tr><th>Nome</th><th>Comportamento</th><th>Situação</th><th></th></tr></thead><tbody>
+  ${MODS.map((m,i)=>`<tr><td><input type="text" class="cfgNome" data-i="${i}" value="${esc(m.nome)}" style="width:100%;min-width:160px"></td><td class="small">${esc(TIPOS[m.tipo]||m.tipo)}</td>
+    <td>${m.ativo===false?'<span class="pill err">Desativada</span>':'<span class="pill ok">Ativa</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn sec sm" data-ren="${i}">Salvar nome</button> <button class="btn sm ${m.ativo===false?'ok':'danger'}" data-tog="${i}">${m.ativo===false?'Reativar':'Retirar da lista'}</button></td></tr>`).join('')}</tbody></table>`;
+}
+async function salvarMods(msg){try{await DB.salvarModalidades(MODS,USER);toast(msg,'ok');}catch(e){toast('Não foi possível salvar: '+e.message,'erro');await carregarMods();}preencherFiltrosMod();renderCfg();renderDraft();}
+$('#cfgList').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||!isGestor())return;
+  if(b.dataset.ren!==undefined){const i=+b.dataset.ren;const v=$(`.cfgNome[data-i="${i}"]`).value.trim();if(!v)return toast('O nome não pode ficar vazio.','erro');
+    if(MODS.some((m,k)=>k!==i&&m.nome.toLowerCase()===v.toLowerCase()))return toast('Já existe uma modalidade com esse nome.','erro');
+    MODS[i]={...MODS[i],nome:v};await salvarMods('Nome atualizado.');}
+  if(b.dataset.tog!==undefined){const i=+b.dataset.tog;const m=MODS[i];
+    if(m.ativo!==false){const ok=await dialogo({titulo:`Retirar "${m.nome}" da lista?`,html:'<p>Ela deixa de aparecer para novas remessas. Os romaneios já gerados com ela continuam no histórico e nos relatórios.</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Retirar',val:true,cls:'danger'}]});if(!ok)return;}
+    MODS[i]={...m,ativo:m.ativo===false};await salvarMods(MODS[i].ativo?'Modalidade reativada.':'Modalidade retirada da lista.');}});
+$('#btnCfgAdd').onclick=async()=>{if(!isGestor())return;const nome=$('#cfgNome').value.trim();const tipo=$('#cfgTipo').value;
+  if(!nome)return toast('Informe o nome da modalidade.','erro');
+  if(MODS.some(m=>m.nome.toLowerCase()===nome.toLowerCase()))return toast('Já existe uma modalidade com esse nome.','erro');
+  const id=nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)+'-'+Date.now().toString(36);
+  MODS.push({id,nome,tipo,ativo:true});$('#cfgNome').value='';await salvarMods(`Modalidade "${nome}" adicionada.`);};
+
+/* ================= USUÁRIOS (GESTOR) ================= */
+const PERFIS={gestor:'Gestor',auxiliar:'Auxiliar'};
+let USERS=[];
+const RE_EMAIL=/^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
+function normPerfil(p){p=String(p||'').trim().toLowerCase();if(!p)return 'auxiliar';if(p.startsWith('g'))return 'gestor';if(p.startsWith('a'))return 'auxiliar';return null;}
+function traduzErro(e){const c=(e&&e.code)||'';
+  if(c==='auth/invalid-email')return 'e-mail inválido';
+  if(c==='auth/too-many-requests')return 'muitas tentativas seguidas; aguarde alguns minutos e tente de novo';
+  if(c==='auth/operation-not-allowed')return 'cadastro por e-mail/senha desativado no Firebase';
+  if(c==='auth/network-request-failed')return 'sem conexão com a internet';
+  if(c==='permission-denied'||c==='firestore/permission-denied')return 'sem permissão (apenas gestor)';
+  return (e&&e.message)||String(e);}
+function optPerfil(sel,dis){return `<select class="usrPerfil" ${dis?'disabled':''}>${Object.entries(PERFIS).map(([k,v])=>`<option value="${k}" ${k===sel?'selected':''}>${v}</option>`).join('')}</select>`;}
+async function semearUsuarios(){ // garante que os usuários que já existiam antes da v1.2 estejam cadastrados
+  try{const em='expedicaomesoestetic@gmail.com';if(!(await DB.getUsuario(em)))await DB.salvarUsuario({email:em,nome:'Expedição',perfil:'auxiliar',ativo:true,criadoMs:Date.now(),criadoPor:'migração v1.2'});}catch(e){console.warn('semear',e);}}
+async function renderUsuarios(){const area=$('#usrList');
+  if(!isGestor()){area.innerHTML='';return;}
+  area.innerHTML='<p class="muted">Carregando…</p>';
+  try{USERS=await DB.listarUsuarios();}catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro ao carregar usuários: ${esc(traduzErro(e))}</div>`;return;}
+  if(!USERS.length){area.innerHTML='<div class="empty">Nenhum usuário cadastrado.</div>';return;}
+  const eu=String(USER&&USER.email||'').toLowerCase();
+  area.innerHTML=`<table class="t"><thead><tr><th>Nome (sai no romaneio)</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th></th></tr></thead><tbody>
+  ${USERS.map(u=>{const sup=u.email===SUPER_GESTOR,self=u.email===eu;
+    return `<tr data-em="${esc(u.email)}"><td><input type="text" class="usrNome" value="${esc(u.nome)}" style="width:100%;min-width:160px"></td><td class="small">${esc(u.email)}${sup?' <span class="pill">gestor principal</span>':''}</td>
+    <td>${optPerfil(sup?'gestor':u.perfil,sup)}</td>
+    <td>${u.ativo===false?'<span class="pill err">Desativado</span>':'<span class="pill ok">Ativo</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn sec sm" data-usave="1">Salvar</button> <button class="btn sec sm" data-ureset="1" title="Envia de novo o e-mail para a pessoa criar ou trocar a senha">Reenviar e-mail de senha</button>
+      ${sup||self?'':`<button class="btn sm ${u.ativo===false?'ok':'danger'}" data-utog="1">${u.ativo===false?'Reativar':'Desativar'}</button>`}</td></tr>`;}).join('')}</tbody></table>
+  <p class="muted small">${USERS.length} usuário(s). O gestor principal (${esc(SUPER_GESTOR)}) não pode ser desativado nem rebaixado.</p>`;
+}
+$('#usrList').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||!isGestor())return;const tr=b.closest('tr');const em=tr&&tr.dataset.em;const u=USERS.find(x=>x.email===em);if(!u)return;
+  b.disabled=true;
+  try{
+    if(b.dataset.usave){const nome=tr.querySelector('.usrNome').value.trim();if(!nome){toast('O nome não pode ficar vazio.','erro');return;}
+      const perfil=em===SUPER_GESTOR?'gestor':tr.querySelector('.usrPerfil').value;
+      await DB.salvarUsuario({email:em,nome,perfil,atualizadoMs:Date.now(),atualizadoPor:USER.nome});
+      if(em===String(USER.email||'').toLowerCase()){USER.nome=nome;$('#userName').textContent=USER.nome+(USER.email?' · '+USER.email:'');}
+      toast('Usuário atualizado.','ok');}
+    if(b.dataset.ureset){await DB.reenviarSenha(em);toast(`E-mail de senha enviado para ${em}.`,'ok');}
+    if(b.dataset.utog){const ativar=u.ativo===false;
+      if(!ativar){const ok=await dialogo({titulo:`Desativar ${u.nome}?`,html:'<p>A pessoa perde o acesso na hora (se estiver logada, é desconectada). O nome dela continua nos romaneios e no histórico.</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Desativar',val:true,cls:'danger'}]});if(!ok)return;}
+      await DB.salvarUsuario({email:em,ativo:ativar,atualizadoMs:Date.now(),atualizadoPor:USER.nome});toast(ativar?'Usuário reativado.':'Usuário desativado.','ok');}
+  }catch(err){toast('Erro: '+traduzErro(err),'erro');}
+  finally{b.disabled=false;}
+  renderUsuarios();});
+
+async function cadastrarUsuarios(lista){
+  if(!lista.length)return;
+  const prog=await (async()=>{const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML='<div class="modal"><h3>Cadastrando usuários…</h3><p id="usrProg" class="muted"></p></div>';document.body.appendChild(bg);return bg;})();
+  const res=[];let i=0;
+  for(const u of lista){i++;prog.querySelector('#usrProg').textContent=`${i} de ${lista.length}: ${u.email}`;
+    try{const st=await DB.criarAcesso(u.email,u.nome);
+      await DB.salvarUsuario({email:u.email,nome:u.nome,perfil:u.perfil,ativo:true,criadoMs:Date.now(),criadoPor:USER.nome});
+      res.push({u,ok:true,st});}
+    catch(e){res.push({u,ok:false,erro:traduzErro(e)});}}
+  prog.remove();
+  const ok=res.filter(r=>r.ok),er=res.filter(r=>!r.ok);
+  await dialogo({titulo:'Resultado do cadastro',html:`${ok.length?`<p><b>${ok.length} cadastrado(s)</b>. ${MODO_FIREBASE?'Cada pessoa recebeu um e-mail para criar a própria senha (peça para olhar também o spam).':'(Modo demonstração: nenhum e-mail é enviado.)'}</p><ul>${ok.map(r=>`<li>${esc(r.u.nome)} · ${esc(r.u.email)} · ${PERFIS[r.u.perfil]}${r.st==='existente'?' <span class="muted">(já tinha acesso no Firebase; cadastro liberado e e-mail de senha reenviado)</span>':''}</li>`).join('')}</ul>`:''}
+    ${er.length?`<p class="feedback err" style="display:block">${er.length} não cadastrado(s):</p><ul>${er.map(r=>`<li>${esc(r.u.email)}: ${esc(r.erro)}</li>`).join('')}</ul>`:''}`});
+  renderUsuarios();
+}
+$('#btnUsrAdd').onclick=async()=>{if(!isGestor())return;
+  const nome=$('#usrNome').value.trim(),email=$('#usrEmail').value.trim().toLowerCase(),perfil=$('#usrPerfil').value;
+  if(!nome)return toast('Informe o nome.','erro');if(!RE_EMAIL.test(email))return toast('E-mail inválido.','erro');
+  if(USERS.some(x=>x.email===email))return toast('Esse e-mail já está cadastrado.','erro');
+  await cadastrarUsuarios([{nome,email,perfil}]);$('#usrNome').value='';$('#usrEmail').value='';};
+function parseColagem(txt){const vistos=new Set();
+  return txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map((l,i)=>{
+    let p=l.split(/\t|;/);if(p.length<2)p=l.split(',');p=p.map(x=>x.trim()).filter(x=>x!=='');
+    const iE=p.findIndex(x=>x.includes('@'));
+    if(iE<0&&/mail/i.test(l))return null; // linha de cabeçalho
+    const email=iE>=0?p[iE].toLowerCase():'';const resto=p.filter((_,k)=>k!==iE);
+    const nome=resto[0]||'',perfilRaw=resto[1]||'',perfil=normPerfil(perfilRaw);
+    let erro='';
+    if(!nome)erro='sem nome';else if(!RE_EMAIL.test(email))erro='e-mail inválido';
+    else if(!perfil)erro=`perfil "${perfilRaw}" inválido (use gestor ou auxiliar)`;
+    else if(vistos.has(email))erro='repetido na lista';else if(USERS.some(x=>x.email===email))erro='já cadastrado';
+    vistos.add(email);return {linha:i+1,nome,email,perfil:perfil||'',erro};}).filter(Boolean);}
+let PREVIA=[];
+$('#btnUsrPrev').onclick=()=>{if(!isGestor())return;PREVIA=parseColagem($('#usrColar').value);const area=$('#usrPrev');
+  if(!PREVIA.length){area.innerHTML='<p class="muted">Nada para cadastrar. Cole uma pessoa por linha.</p>';return;}
+  const ok=PREVIA.filter(x=>!x.erro);
+  area.innerHTML=`<div class="tbl-wrap"><table class="t"><thead><tr><th>Linha</th><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th></tr></thead><tbody>
+    ${PREVIA.map(x=>`<tr class="${x.erro?'div':''}"><td>${x.linha}</td><td>${esc(x.nome)}</td><td>${esc(x.email)}</td><td>${esc(PERFIS[x.perfil]||'—')}</td><td>${x.erro?`<span class="pill err">${esc(x.erro)}</span>`:'<span class="pill ok">OK</span>'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="row" style="margin-top:10px"><button class="btn ok" id="btnUsrCad" ${ok.length?'':'disabled'}>Cadastrar ${ok.length} usuário(s)</button>${PREVIA.length>ok.length?`<span class="muted small">${PREVIA.length-ok.length} linha(s) com problema serão ignoradas.</span>`:''}</div>`;};
+$('#usrPrev').addEventListener('click',async e=>{if(e.target.id!=='btnUsrCad'||!isGestor())return;
+  const lista=PREVIA.filter(x=>!x.erro);e.target.disabled=true;await cadastrarUsuarios(lista);$('#usrColar').value='';$('#usrPrev').innerHTML='';PREVIA=[];});
+
+/* ================= EMBALAGEM: conferência item a item ================= */
+const PARAM_EMB_PADRAO={limiteMultiplos:10,diasValidade:180};
+let PARAM_EMB={...PARAM_EMB_PADRAO};
+async function carregarParamEmb(){try{const p=await DB.getParamEmb();if(p)PARAM_EMB={...PARAM_EMB_PADRAO,...p};}catch(e){console.warn('param emb',e);}}
+// GTIN: aceita 8/12/13/14 dígitos com dígito verificador válido; normaliza para 14 dígitos
+function gtinValido(c){c=onlyDig(c);if(![8,12,13,14].includes(c.length))return false;const d=c.slice(0,-1).split('').reverse();let s=0;d.forEach((x,i)=>s+=(+x)*(i%2===0?3:1));return (10-s%10)%10===+c.slice(-1);}
+function gtinNorm(c){c=onlyDig(c);return c.padStart(14,'0');}
+function normLote(l){return String(l||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function diasAte(iso){if(!iso)return null;return Math.floor((new Date(iso+'T00:00:00')-new Date(isoHoje()+'T00:00:00'))/864e5);}
+const TIPO_OCOR={produto_fora_da_nf:'Produto que não está na NF',excesso:'Quantidade acima da NF',lote_divergente:'Lote digitado não confere com a NF',abandono:'Conferência abandonada',reconferencia:'NF conferida novamente',sem_leitura:'Item confirmado sem leitura'};
+
+let EMB=null; // {nota, linhas, inicioMs, recontagens, atual, ocorr:[]}
+function embMsg(t,c){const m=$('#embMsg');m.className='feedback '+c;m.innerHTML=t;m.style.display='';}
+function embFlash(ok){const el=$('#embPainel');if(!el)return;el.classList.remove('flash-ok','flash-err');void el.offsetWidth;el.classList.add(ok?'flash-ok':'flash-err');}
+function focarEmb(){if($('#tab-emb').classList.contains('hidden'))return;if(document.querySelector('.modal-bg'))return;const a=document.activeElement;if(a&&a.classList.contains('embQtd'))return;$('#embInput').focus();}
+async function registrarOcorrencia(tipo,extra={}){
+  const o={tipo,chave:EMB?.nota?.chave||extra.chave||'',numero:EMB?.nota?.numero||extra.numero||'',operador:{uid:USER.uid,nome:USER.nome},ms:Date.now(),...extra};
+  if(EMB)EMB.ocorr.push(o);
+  try{await DB.registrarOcorrencia(o);}catch(e){console.warn('ocorrência',e);}}
+
+async function embAbrir(ch){
+  const n=await DB.getNota(ch);
+  if(!n){const k=decodificarChave(ch);bip(false);return embMsg(`NF ${esc(k.numero)} não está na base. Importe o XML na aba <b>Base de XMLs</b>.`,'err');}
+  if(!Array.isArray(n.itens)||!n.itens.length){bip(false);return embMsg(`A NF ${esc(n.numero)} foi importada antes da aba Embalagem existir e não tem os itens guardados. <b>Importe o XML dela de novo</b> na aba Base de XMLs.`,'err');}
+  if(n.conferida){const ok=await dialogo({titulo:`NF ${n.numero} já foi conferida`,html:`<p>Conferida em ${fmtDataHora(n.conferenciaMs)} por <b>${esc(n.conferidoPor||'')}</b>.</p><p>Deseja conferir de novo? A nova conferência substitui a anterior e fica registrada.</p>`,botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Conferir de novo',val:true}]});
+    if(!ok)return focarEmb();}
+  // resolve EAN: XML (cEAN/cEANTrib) -> tabela de produtos
+  const faltam=[...new Set(n.itens.filter(i=>!i.ean).map(i=>i.cProd))];let tab={};
+  if(faltam.length){try{tab=await DB.getProdutos(faltam);}catch(e){console.warn(e);}}
+  const linhas=[];
+  n.itens.forEach(it=>{const ean=it.ean||(tab[it.cProd]&&tab[it.cProd].ean)||'';const origem=it.ean?'xml':(ean?'tabela':'');
+    const lotes=it.lotes||[];const somaL=lotes.reduce((a,b)=>a+(+b.qLote||0),0);
+    if(lotes.length>1&&Math.round(somaL)===Math.round(it.qCom)){lotes.forEach((l,k)=>linhas.push({id:it.n+'.'+k,n:it.n,cProd:it.cProd,ean,origem,xProd:it.xProd,uCom:it.uCom,qtd:Math.round(+l.qLote),lido:0,lote:l.nLote||'',dVal:l.dVal||'',loteOk:false,modos:{bipe:0,multiplo:0,manual:0},just:[]}));}
+    else{const l=lotes[0]||{};linhas.push({id:String(it.n),n:it.n,cProd:it.cProd,ean,origem,xProd:it.xProd,uCom:it.uCom,qtd:Math.round(+it.qCom),lido:0,lote:l.nLote||'',dVal:l.dVal||'',loteOk:false,modos:{bipe:0,multiplo:0,manual:0},just:[]});}});
+  EMB={nota:n,linhas,inicioMs:Date.now(),recontagens:0,atual:null,ocorr:[],reconf:!!n.conferida};
+  if(n.conferida)registrarOcorrencia('reconferencia');
+  bip(true);renderEmb();
+  const semEan=linhas.filter(l=>!l.ean).length;
+  embMsg(`NF ${esc(n.numero)} aberta · ${esc(n.cliente.nome)}. Bipe os itens um a um.${semEan?` <b>${semEan} item(ns) sem código de barras cadastrado</b>: use “Sem leitura” ou cadastre o EAN em Configurações → Produtos.`:''}`,semEan?'warn':'ok');
+  focarEmb();
+}
+function embTotais(){const t=EMB.linhas.reduce((a,l)=>a+l.qtd,0),r=EMB.linhas.reduce((a,l)=>a+l.lido,0);return {t,r};}
+function renderEmb(){
+  const area=$('#embArea');
+  if(!EMB){area.innerHTML=`<div class="empty">Bipe o código de barras do DANFE (ou o QR code) para abrir a NF e começar a conferência.</div>`;$('#embCancelar').classList.add('hidden');return;}
+  $('#embCancelar').classList.remove('hidden');
+  const n=EMB.nota,{t,r}=embTotais(),pct=t?Math.round(r/t*100):0,atual=EMB.linhas.find(l=>l.id===EMB.atual);
+  const lim=PARAM_EMB.limiteMultiplos;
+  const podeMult=atual&&atual.qtd>lim&&atual.lido>=1&&atual.lido<atual.qtd;
+  area.innerHTML=`<div class="emb-head"><div><div class="muted small">Cliente</div><div class="emb-cli">${esc(n.cliente.nome)}</div><div class="small muted">${esc(fmtDoc(n.cliente.doc))} · ${esc(cidadeUf(n.endereco))}</div></div>
+    <div style="text-align:right"><div class="muted small">NF</div><div class="emb-nf">${esc(n.numero)}</div><div class="small muted">${n.volumes} volume(s) no XML · recontagens: <b>${EMB.recontagens}</b></div></div></div>
+    <div class="emb-prog"><div style="width:${pct}%"></div><span>${r} de ${t} unidades conferidas (${pct}%)</span></div>
+    <div id="embPainel" class="emb-painel">${atual?`<div class="muted small">Último item bipado</div><div class="emb-item">${esc(atual.xProd)}</div>
+      <div class="small">Cód. ${esc(atual.cProd)} · EAN ${esc(atual.ean||'—')}${atual.lote?` · lote conferido`:''}</div>
+      <div class="emb-cont">${atual.lido} / ${atual.qtd} ${esc(atual.uCom||'')}</div>
+      ${podeMult?`<div class="row" style="justify-content:center;margin-top:8px"><span class="small muted">Quantidade alta: some de uma vez →</span>
+        <button class="btn sec" data-mult="5">+5</button><button class="btn sec" data-mult="10">+10</button>
+        <input type="number" class="embQtd" min="1" max="${atual.qtd-atual.lido}" placeholder="qtd" style="width:90px"><button class="btn" data-mult="x">Somar</button>
+        <span class="small muted">(faltam ${atual.qtd-atual.lido})</span></div>`:''}`
+      :'<div class="muted">Bipe o primeiro item.</div>'}</div>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>#</th><th>Produto</th><th>EAN</th><th>Lote</th><th>Validade</th><th class="num">NF</th><th class="num">Conferido</th><th></th></tr></thead><tbody>
+    ${EMB.linhas.map(l=>{const ok=l.lido===l.qtd,d=diasAte(l.dVal),curta=d!==null&&d<PARAM_EMB.diasValidade;
+      return `<tr class="${ok?'ok-row':''} ${l.id===EMB.atual?'cur-row':''}"><td>${esc(l.n)}</td><td><b>${esc(l.xProd)}</b><div class="small muted">Cód. ${esc(l.cProd)}</div></td>
+      <td class="mono">${l.ean?esc(l.ean)+(l.origem==='tabela'?' <span class="pill">tabela</span>':''):'<span class="pill err">sem EAN</span>'}</td>
+      <td>${l.lote?(l.loteOk?'<span class="pill ok">conferido</span>':'<span class="pill">digitar da embalagem</span>'):'<span class="muted">—</span>'}</td>
+      <td>${l.dVal?`${fmtData(l.dVal)}${curta?` <span class="pill ${d<0?'err':'warn'}">${d<0?'VENCIDO':d+' dias'}</span>`:''}`:'<span class="muted">—</span>'}</td>
+      <td class="num">${l.qtd}</td><td class="num"><b>${l.lido}</b>${ok?' ✔':''}</td>
+      <td>${ok?'':`<button class="btn sec sm" data-manual="${esc(l.id)}" title="Código de barras ilegível">Sem leitura</button>`}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+async function pedirLote(linha,cands){
+  return dialogo({titulo:'Digite o lote impresso na embalagem',html:`<p><b>${esc(linha.xProd)}</b></p><p class="muted small">Digite exatamente como está na embalagem. O sistema compara com o lote da NF.</p><input type="text" id="dlgLote" style="width:100%;font-size:20px;text-transform:uppercase" autocomplete="off">`,
+    botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar lote',val:bg=>bg.querySelector('#dlgLote').value.trim()||(toast('Digite o lote.','erro'),undefined)}]});}
+async function embErroReset(tipo,detalhe){
+  bip(false);embFlash(false);EMB.recontagens++;
+  EMB.linhas.forEach(l=>{l.lido=0;l.loteOk=false;l.modos={bipe:0,multiplo:0,manual:0};l.just=[];});EMB.atual=null;
+  await registrarOcorrencia(tipo,{detalhe});renderEmb();
+  await dialogo({titulo:'Divergência: recomece a contagem da NF',html:`<p class="feedback err" style="display:block">${esc(TIPO_OCOR[tipo])}${detalhe?': '+esc(detalhe):''}</p><p>A contagem desta NF foi <b>zerada</b>. Confira os itens separados e bipe tudo novamente.</p>`,botoes:[{txt:'Recomeçar',val:true}]});
+  embMsg('Contagem zerada. Recomece bipando item por item.','warn');focarEmb();}
+// resolve em qual linha a unidade entra (considera lote); retorna linha ou null (já tratado)
+async function embLinhaPara(cands,todas){
+  const comLote=cands.filter(l=>l.lote);
+  if(!comLote.length)return cands[0];
+  const jaOk=cands.find(l=>l.loteOk);if(jaOk)return jaOk;
+  const dig=await pedirLote(cands[0]);if(!dig){focarEmb();return null;}
+  const alvo=cands.find(l=>normLote(l.lote)===normLote(dig));
+  if(alvo){alvo.loteOk=true;return alvo;}
+  if(todas.some(l=>normLote(l.lote)===normLote(dig))){await embErroReset('excesso',`${cands[0].xProd}, lote ${dig} já completo`);return null;}
+  bip(false);embFlash(false);await registrarOcorrencia('lote_divergente',{detalhe:`${cands[0].xProd}: digitado ${dig}`});
+  embMsg(`<b>Lote ${esc(dig)} não confere com a NF</b> para ${esc(cands[0].xProd)}. A unidade não foi contada. Confira a embalagem e bipe de novo.`,'err');focarEmb();return null;}
+let embOcupado=false;
+async function embScan(raw){
+  const cod=String(raw||'').trim();$('#embInput').value='';if(!cod||embOcupado)return;
+  embOcupado=true;
+  try{
+    const ch=extrairChave(cod);
+    if(ch&&chaveValida(ch)){
+      if(EMB&&EMB.nota.chave!==ch){const ok=await dialogo({titulo:'Trocar de NF?',html:`<p>A conferência da NF ${esc(EMB.nota.numero)} não foi concluída e será <b>descartada</b> (fica registrado como abandono).</p>`,botoes:[{txt:'Continuar nesta NF',val:false,cls:'sec'},{txt:'Descartar e abrir outra',val:true,cls:'danger'}]});
+        if(!ok)return focarEmb();await registrarOcorrencia('abandono');EMB=null;}
+      if(EMB&&EMB.nota.chave===ch){embMsg('Esta NF já está aberta. Bipe os itens.','warn');return;}
+      return await embAbrir(ch);}
+    if(!EMB){bip(false);return embMsg('Bipe primeiro o DANFE para abrir a NF.','err');}
+    const g=onlyDig(cod);
+    if(!gtinValido(g)){bip(false);embFlash(false);return embMsg(`Leitura “${esc(cod)}” não é um código de barras válido. Bipe de novo.`,'err');}
+    const todas=EMB.linhas.filter(l=>l.ean&&gtinNorm(l.ean)===gtinNorm(g));
+    if(!todas.length)return await embErroReset('produto_fora_da_nf',`EAN ${g}`);
+    const cands=todas.filter(l=>l.lido<l.qtd);
+    if(!cands.length)return await embErroReset('excesso',`${todas[0].xProd} (NF: ${todas.reduce((a,l)=>a+l.qtd,0)})`);
+    const linha=await embLinhaPara(cands,todas);if(!linha)return;
+    linha.lido++;linha.modos.bipe++;EMB.atual=linha.id;bip(true);embFlash(true);renderEmb();
+    embMsg(`✔ ${esc(linha.xProd)} · ${linha.lido}/${linha.qtd}`,'ok');
+    await embVerificarFim();
+  }finally{embOcupado=false;focarEmb();}
+}
+async function embSomar(q){
+  const l=EMB&&EMB.linhas.find(x=>x.id===EMB.atual);if(!l)return;
+  const falta=l.qtd-l.lido;q=Math.floor(+q||0);
+  if(!(l.qtd>PARAM_EMB.limiteMultiplos&&l.lido>=1))return toast('Múltiplos só depois de bipar 1 unidade de item com quantidade alta.','erro');
+  if(q<1)return toast('Informe a quantidade.','erro');
+  if(q>falta){bip(false);return toast(`Faltam só ${falta} unidade(s) deste item.`,'erro');}
+  l.lido+=q;l.modos.multiplo+=q;bip(true);embFlash(true);renderEmb();embMsg(`✔ +${q} ${esc(l.xProd)} · ${l.lido}/${l.qtd}`,'ok');await embVerificarFim();focarEmb();}
+async function embManual(id){
+  const l=EMB.linhas.find(x=>x.id===id);if(!l)return;const falta=l.qtd-l.lido;
+  const r=await dialogo({titulo:'Confirmar item sem leitura do código',html:`<p><b>${esc(l.xProd)}</b> · faltam ${falta}</p>
+    <label class="f">Quantidade<input type="number" id="dlgMq" min="1" max="${falta}" value="1"></label>
+    ${l.lote&&!l.loteOk?'<label class="f" style="margin-top:8px">Lote impresso na embalagem<input type="text" id="dlgMl" style="text-transform:uppercase"></label>':''}
+    <label class="f" style="margin-top:8px">Justificativa (obrigatória)<input type="text" id="dlgMj" placeholder="Ex.: código de barras rasgado"></label>`,
+    botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Confirmar',val:bg=>{const q=Math.floor(+bg.querySelector('#dlgMq').value||0),j=bg.querySelector('#dlgMj').value.trim(),lt=bg.querySelector('#dlgMl');
+      if(q<1||q>falta){toast(`Quantidade entre 1 e ${falta}.`,'erro');return undefined;}if(j.length<5){toast('Escreva a justificativa.','erro');return undefined;}
+      if(lt&&!lt.value.trim()){toast('Digite o lote.','erro');return undefined;}return {q,j,lote:lt?lt.value.trim():null};}}]});
+  if(!r)return focarEmb();
+  if(r.lote!==null&&normLote(r.lote)!==normLote(l.lote)){bip(false);await registrarOcorrencia('lote_divergente',{detalhe:`${l.xProd}: digitado ${r.lote} (sem leitura)`});return embMsg(`<b>Lote ${esc(r.lote)} não confere com a NF.</b> Nada foi contado.`,'err');}
+  if(r.lote!==null)l.loteOk=true;
+  l.lido+=r.q;l.modos.manual+=r.q;l.just.push(r.j);EMB.atual=l.id;
+  await registrarOcorrencia('sem_leitura',{detalhe:`${l.xProd} × ${r.q}: ${r.j}`});
+  bip(true);renderEmb();await embVerificarFim();focarEmb();}
+async function embVerificarFim(){
+  const {t,r}=embTotais();if(r<t)return;
+  const n=EMB.nota,fim=Date.now();
+  const conf={chave:n.chave,numero:n.numero,serie:n.serie,cliente:{nome:n.cliente.nome,doc:n.cliente.doc},volumes:n.volumes,
+    operador:{uid:USER.uid,nome:USER.nome},inicioMs:EMB.inicioMs,fimMs:fim,duracaoS:Math.round((fim-EMB.inicioMs)/1000),recontagens:EMB.recontagens,
+    unidades:t,reconferencia:EMB.reconf,
+    itens:EMB.linhas.map(l=>({n:l.n,cProd:l.cProd,ean:l.ean,origemEan:l.origem,xProd:l.xProd,qtd:l.qtd,lote:l.lote,dVal:l.dVal,modos:l.modos,justificativas:l.just})),
+    ocorrencias:EMB.ocorr.map(o=>({tipo:o.tipo,detalhe:o.detalhe||'',ms:o.ms})),status:'conferida'};
+  try{await DB.salvarConferencia(conf);}
+  catch(e){bip(false);return embMsg('Não foi possível salvar a conferência: '+esc(e.message)+'. Tente bipar o último item de novo.','err');}
+  EMB=null;renderEmb();
+  const mm=Math.floor(conf.duracaoS/60),ss=String(conf.duracaoS%60).padStart(2,'0');
+  embMsg(`✔ <b>NF ${esc(n.numero)} conferida</b> · ${t} unidade(s) · ${mm}:${ss} min · ${conf.recontagens} recontagem(ns). Bipe o próximo DANFE.`,'ok');
+  await dialogo({titulo:`NF ${n.numero} conferida ✔`,html:`<p><b>${esc(n.cliente.nome)}</b></p><p>${t} unidade(s) conferida(s) em ${mm}:${ss} min.</p><p>Volumes no XML: <b>${n.volumes}</b>. Pode fechar e identificar as caixas.</p><p class="muted small">A impressão automática de etiquetas de volume e do DANFE entra na próxima etapa.</p>`,botoes:[{txt:'OK',val:true}]});}
+$('#embInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();embScan(e.target.value);}});
+$('#embArea').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||!EMB)return;
+  if(b.dataset.mult){const v=b.dataset.mult==='x'?$('#embArea .embQtd').value:b.dataset.mult;return embSomar(v);}
+  if(b.dataset.manual)return embManual(b.dataset.manual);});
+$('#embArea').addEventListener('keydown',e=>{if(e.target.classList.contains('embQtd')&&e.key==='Enter'){e.preventDefault();embSomar(e.target.value);}});
+$('#embCancelar').onclick=async()=>{if(!EMB)return;const ok=await dialogo({titulo:'Abandonar esta conferência?',html:'<p>Nada é gravado como conferido e o abandono fica registrado.</p>',botoes:[{txt:'Voltar',val:false,cls:'sec'},{txt:'Abandonar',val:true,cls:'danger'}]});
+  if(ok){await registrarOcorrencia('abandono');EMB=null;renderEmb();embMsg('Conferência abandonada.','warn');}focarEmb();};
+document.addEventListener('click',e=>{if(!$('#tab-emb').classList.contains('hidden')&&!e.target.closest('input,select,button,textarea,a,.modal-bg'))setTimeout(focarEmb,50);});
+window.addEventListener('beforeunload',e=>{if(EMB){e.preventDefault();e.returnValue='';}});
+
+/* ================= CONFIGURAÇÕES: parâmetros e produtos ================= */
+function renderCfgEmb(){if(!isGestor())return;$('#cfgLimMult').value=PARAM_EMB.limiteMultiplos;$('#cfgDiasVal').value=PARAM_EMB.diasValidade;contarProdutos();}
+async function contarProdutos(){try{const n=await DB.contarProdutos();$('#prodInfo').textContent=`${n} produto(s) com código de barras cadastrado.`;}catch(e){$('#prodInfo').textContent='';}}
+$('#btnParamEmb').onclick=async()=>{if(!isGestor())return;const lim=Math.floor(+$('#cfgLimMult').value),dias=Math.floor(+$('#cfgDiasVal').value);
+  if(!(lim>=1&&lim<=1000))return toast('Limite de múltiplos entre 1 e 1000.','erro');if(!(dias>=0&&dias<=3650))return toast('Dias de validade entre 0 e 3650.','erro');
+  try{await DB.salvarParamEmb({limiteMultiplos:lim,diasValidade:dias});PARAM_EMB={limiteMultiplos:lim,diasValidade:dias};toast('Parâmetros salvos.','ok');}catch(e){toast('Erro: '+traduzErro(e),'erro');}};
+function parseProdutos(txt){const vistos=new Set();
+  return txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map((l,i)=>{let p=l.split(/\t|;/);if(p.length<2)p=l.split(',');p=p.map(x=>x.trim());
+    if(i===0&&!p.some(x=>gtinValido(x))&&/c[oó]d|ean|gtin/i.test(l))return null;
+    const cProd=p[0]||'',ean=onlyDig(p[1]||''),desc=p.slice(2).join(' ').trim();let erro='';
+    if(!cProd)erro='sem código';else if(!gtinValido(ean))erro='EAN inválido';else if(vistos.has(cProd))erro='código repetido';
+    vistos.add(cProd);return {linha:i+1,cProd,ean,descricao:desc,erro};}).filter(Boolean);}
+$('#btnProdImp').onclick=async()=>{if(!isGestor())return;const lista=parseProdutos($('#prodColar').value);if(!lista.length)return toast('Cole uma linha por produto.','erro');
+  const ok=lista.filter(x=>!x.erro),er=lista.filter(x=>x.erro);
+  const c=await dialogo({titulo:'Importar produtos',html:`<p><b>${ok.length}</b> produto(s) válidos${er.length?`, <b>${er.length}</b> com problema (serão ignorados)`:''}.</p>${er.length?`<ul class="small">${er.slice(0,30).map(x=>`<li>Linha ${x.linha}: ${esc(x.cProd||'—')} → ${esc(x.erro)}</li>`).join('')}</ul>`:''}`,botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:`Importar ${ok.length}`,val:true,cls:'ok'}]});
+  if(!c||!ok.length)return;
+  try{await DB.salvarProdutos(ok.map(x=>({cProd:x.cProd,ean:x.ean,descricao:x.descricao,origem:'manual',atualizadoMs:Date.now(),atualizadoPor:USER.nome})));toast(`${ok.length} produto(s) importado(s).`,'ok');$('#prodColar').value='';contarProdutos();}
+  catch(e){toast('Erro: '+traduzErro(e),'erro');}};
+$('#btnProdBusca').onclick=async()=>{const q=$('#prodBusca').value.trim();if(!q)return;const area=$('#prodRes');
+  try{const r=await DB.buscarProduto(q);area.innerHTML=r.length?`<table class="t"><thead><tr><th>Código</th><th>EAN</th><th>Descrição</th><th>Origem</th></tr></thead><tbody>${r.map(p=>`<tr><td>${esc(p.cProd)}</td><td class="mono">${esc(p.ean)}</td><td>${esc(p.descricao||'')}</td><td>${esc(p.origem||'')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">Nenhum produto encontrado.</p>';}
+  catch(e){area.innerHTML=`<p class="feedback err" style="display:block">${esc(traduzErro(e))}</p>`;}};
+
+$('#ver').textContent=APP_VERSAO;
+</script>
+</body>
+</html>
