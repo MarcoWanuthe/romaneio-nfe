@@ -180,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.5.1 (2026-09-29)";
+const APP_VERSAO = "1.5.2 (2026-10-02)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -388,10 +388,10 @@ function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function onlyDig(s){return String(s||'').replace(/\D/g,'');}
 function fmtDoc(d){d=onlyDig(d); if(d.length===14)return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'); if(d.length===11)return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/,'$1.$2.$3-$4'); return d;}
 function fmtCep(c){c=onlyDig(c);return c.length===8?c.replace(/^(\d{5})(\d{3})$/,'$1-$2'):c;}
-function fmtData(iso){if(!iso)return '';const [y,m,d]=iso.slice(0,10).split('-');return `${d}/${m}/${y}`;}
+function fmtData(iso){if(!iso)return '';const [y,m,d]=String(iso).slice(0,10).split('-');return esc(`${d}/${m}/${y}`);}
 function fmtDataHora(ms){const d=new Date(ms);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
-function pad(n,l=6){return String(n).padStart(l,'0');}
-function fmtChave(c){return String(c).replace(/(\d{4})(?=\d)/g,'$1 ');}
+function pad(n,l=6){return esc(String(n).padStart(l,'0'));}
+function fmtChave(c){return esc(String(c).replace(/(\d{4})(?=\d)/g,'$1 '));}
 function isoHoje(d=new Date()){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 function nInt(v){const n=parseInt(v,10);return isNaN(n)?0:n;}
 
@@ -434,6 +434,7 @@ const MOD_FRETE={'0':'Por conta do emitente (CIF)','1':'Por conta do destinatár
 function el1(root,tag){if(!root)return null;return root.getElementsByTagNameNS('*',tag)[0]||null;}
 function tx(root,tag){const n=el1(root,tag);return n?n.textContent.trim():'';}
 function filho(root,tag){if(!root)return null;for(const c of root.children){if(c.localName===tag)return c;}return null;}
+function txf(root,tag){const n=filho(root,tag);return n?n.textContent.trim():'';}
 function parseNFe(texto,arquivo=''){
   const doc=new DOMParser().parseFromString(texto,'application/xml');
   if(doc.getElementsByTagName('parsererror').length)throw new Error('arquivo XML inválido');
@@ -453,10 +454,10 @@ function parseNFe(texto,arquivo=''){
     const lotes=[];for(const c of pr.children){if(c.localName==='rastro')lotes.push({nLote:tx(c,'nLote'),qLote:parseFloat(tx(c,'qLote')||0)||0,dFab:tx(c,'dFab'),dVal:tx(c,'dVal')});}
     itens.push({n:+det.getAttribute('nItem')||itens.length+1,cProd:tx(pr,'cProd'),ean:eanOf(tx(pr,'cEAN'))||eanOf(tx(pr,'cEANTrib')),xProd:tx(pr,'xProd'),qCom:parseFloat(tx(pr,'qCom')||0)||0,uCom:tx(pr,'uCom'),lotes});}
   return {
-    chave, numero:String(+tx(ide,'nNF')), serie:String(+tx(ide,'serie')||0), modelo:tx(ide,'mod'),
-    dataEmissao:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),
+    chave, numero:String(+txf(ide,'nNF')), serie:String(+txf(ide,'serie')||0), modelo:txf(ide,'mod'),
+    dataEmissao:(txf(ide,'dhEmi')||txf(ide,'dEmi')).slice(0,10),
     emitente:{nome:tx(emit,'xNome'),doc:tx(emit,'CNPJ')||tx(emit,'CPF'),ie:filho(emit,'IE')?.textContent||'',uf:tx(filho(emit,'enderEmit'),'UF'),endereco:(()=>{const e=filho(emit,'enderEmit');return {logradouro:tx(e,'xLgr'),numero:tx(e,'nro'),complemento:tx(e,'xCpl'),bairro:tx(e,'xBairro'),municipio:tx(e,'xMun'),uf:tx(e,'UF'),cep:tx(e,'CEP'),fone:tx(e,'fone')};})()},
-    tpNF:tx(ide,'tpNF')||'1', dhRecbto:tx(prot,'dhRecbto'),
+    tpNF:txf(ide,'tpNF')||'1', dhRecbto:tx(prot,'dhRecbto'),
     cliente:{nome:tx(dest,'xNome'),doc:filho(dest,'CNPJ')?.textContent||filho(dest,'CPF')?.textContent||filho(dest,'idEstrangeiro')?.textContent||'',ie:filho(dest,'IE')?.textContent||''},
     endereco:{logradouro:tx(ender,'xLgr'),numero:tx(ender,'nro'),complemento:tx(ender,'xCpl'),bairro:tx(ender,'xBairro'),municipio:tx(ender,'xMun'),uf:tx(ender,'UF'),cep:tx(ender,'CEP'),fone:tx(ender,'fone')},
     transportadora:{nome:tx(transporta,'xNome'),doc:(filho(transporta,'CNPJ')?.textContent||filho(transporta,'CPF')?.textContent||''),modFrete,modFreteDesc:MOD_FRETE[modFrete]||'',municipio:tx(transporta,'xMun'),uf:tx(transporta,'UF')},
@@ -758,8 +759,8 @@ function renderDraft(){
       return `<tr class="${ok?'ok-row':''}"><td><b>${esc(n.numero)}</b><div class="small muted">Série ${esc(n.serie)} · ${fmtData(n.dataEmissao)}</div>${it.alertaMod?`<div><span class="pill warn">${esc(it.alertaMod)}</span></div>`:''}</td>
       <td>${esc(n.cliente.nome)}<div class="small muted">${esc(fmtDoc(n.cliente.doc))}</div></td>
       <td>${esc(enderecoStr(n.endereco))}<div class="small muted">${esc(cidadeUf(n.endereco))} · CEP ${esc(fmtCep(n.endereco.cep))}</div></td>
-      <td><div class="vchips">${chips}</div><div class="small ${ok?'':'muted'}">${k}/${e} volume(s)${+n.volumes!==e?` · XML: ${n.volumes}`:''}</div></td>
-      <td style="white-space:nowrap">${ok?'':`<button class="btn sec sm" data-vman="${n.chave}" title="Etiqueta de volume ilegível">Volume sem leitura</button> `}<button class="btn sec sm" data-rm="${n.chave}" title="Remover da remessa">✕</button></td></tr>`;}).join('')}
+      <td><div class="vchips">${chips}</div><div class="small ${ok?'':'muted'}">${k}/${e} volume(s)${+n.volumes!==e?` · XML: ${+n.volumes||0}`:''}</div></td>
+      <td style="white-space:nowrap">${ok?'':`<button class="btn sec sm" data-vman="${esc(n.chave)}" title="Etiqueta de volume ilegível">Volume sem leitura</button> `}<button class="btn sec sm" data-rm="${esc(n.chave)}" title="Remover da remessa">✕</button></td></tr>`;}).join('')}
     </tbody></table></div>`;}).join('');
 }
 $('#draftArea').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
@@ -853,8 +854,8 @@ async function listarBase(){
   try{const a=await DB.listarNotas($('#baseBusca').value);
     if(!a.length){area.innerHTML='<div class="empty">Nenhuma nota encontrada.</div>';return;}
     area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Embalagem</th><th>Situação</th></tr></thead><tbody>
-    ${a.map(n=>`<tr><td><b>${esc(n.numero)}</b> <span class="small muted">s.${esc(n.serie)}</span></td><td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}</td><td>${esc(cidadeUf(n.endereco))}</td><td>${esc(transpNome(n.transportadora))}</td><td class="num">${n.volumes}</td>
-      <td>${n.conferida?`<span class="pill ok" title="${esc(n.conferidoPor||'')} · ${n.conferenciaMs?fmtDataHora(n.conferenciaMs):''}">Conferida</span> <button class="btn sec sm" data-etq="${n.chave}">Etiquetas</button>`:(Array.isArray(n.itens)?'<span class="pill warn">Não conferida</span>':'<span class="pill">Reimportar XML</span>')}</td>
+    ${a.map(n=>`<tr><td><b>${esc(n.numero)}</b> <span class="small muted">s.${esc(n.serie)}</span></td><td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}</td><td>${esc(cidadeUf(n.endereco))}</td><td>${esc(transpNome(n.transportadora))}</td><td class="num">${+n.volumes||0}</td>
+      <td>${n.conferida?`<span class="pill ok" title="${esc(n.conferidoPor||'')} · ${n.conferenciaMs?fmtDataHora(n.conferenciaMs):''}">Conferida</span> <button class="btn sec sm" data-etq="${esc(n.chave)}">Etiquetas</button>`:(Array.isArray(n.itens)?'<span class="pill warn">Não conferida</span>':'<span class="pill">Reimportar XML</span>')}</td>
       <td>${n.romaneioId?`<span class="pill ok">Romaneio Nº ${pad(n.romaneioNumero)}</span>`:'<span class="pill">Disponível</span>'} ${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td></tr>`).join('')}</tbody></table>
     <p class="muted small">${a.length} nota(s) exibida(s)${a.length>=300?' (as mais recentes; use a busca para encontrar outras)':''}.</p>`;
   }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
@@ -1170,7 +1171,7 @@ function renderEmb(){
   const lim=PARAM_EMB.limiteMultiplos;
   const podeMult=atual&&atual.qtd>lim&&atual.lido>=1&&atual.lido<atual.qtd;
   area.innerHTML=`<div class="emb-head"><div><div class="muted small">Cliente</div><div class="emb-cli">${esc(n.cliente.nome)}</div><div class="small muted">${esc(fmtDoc(n.cliente.doc))} · ${esc(cidadeUf(n.endereco))}</div></div>
-    <div style="text-align:right"><div class="muted small">NF</div><div class="emb-nf">${esc(n.numero)}</div><div class="small muted">${n.volumes} volume(s) no XML · recontagens: <b>${EMB.recontagens}</b></div></div></div>
+    <div style="text-align:right"><div class="muted small">NF</div><div class="emb-nf">${esc(n.numero)}</div><div class="small muted">${+n.volumes||0} volume(s) no XML · recontagens: <b>${EMB.recontagens}</b></div></div></div>
     <div class="emb-prog"><div style="width:${pct}%"></div><span>${r} de ${t} unidades conferidas (${pct}%)</span></div>
     <div id="embPainel" class="emb-painel">${atual?`<div class="muted small">Último item bipado</div><div class="emb-item">${esc(atual.xProd)}</div>
       <div class="small">Cód. ${esc(atual.cProd)} · EAN ${esc(atual.ean||'—')}${atual.lote?` · lote conferido`:''}</div>
