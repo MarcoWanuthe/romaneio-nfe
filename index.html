@@ -180,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.5.2 (2026-10-02)";
+const APP_VERSAO = "1.6.0 (2026-10-05)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -268,6 +268,16 @@ const APP_VERSAO = "1.5.2 (2026-10-02)";
           <input type="file" id="fileInput" multiple accept=".xml,.zip,text/xml,application/zip" class="hidden">
         </div>
         <div id="importResult"></div>
+      </div>
+      <div class="card hidden" id="omieCard">
+        <h2>Buscar XMLs direto do Omie</h2>
+        <p class="muted small" style="margin-top:0">Traz as NF-e de saída autorizadas no Omie no período escolhido. Notas que já estão na base são puladas.</p>
+        <div class="row" style="align-items:flex-end">
+          <label class="f">De<input type="date" id="omieDe"></label>
+          <label class="f">Até<input type="date" id="omieAte"></label>
+          <button class="btn" id="btnOmie">Buscar no Omie</button>
+        </div>
+        <div id="omieMsg" class="small" style="margin-top:8px"></div>
       </div>
       <div class="card">
         <div class="row" style="justify-content:space-between">
@@ -361,6 +371,15 @@ const APP_VERSAO = "1.5.2 (2026-10-02)";
           <label class="f">Liberar múltiplos para itens com quantidade acima de<input type="number" id="cfgLimMult" min="1" max="1000" style="width:120px"></label>
           <label class="f">Alertar validade menor que (dias)<input type="number" id="cfgDiasVal" min="0" max="3650" style="width:120px"></label>
           <button class="btn" id="btnParamEmb">Salvar parâmetros</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Integração com o Omie</h2>
+        <p class="muted small" style="margin-top:0">Endereço da ponte segura (Cloudflare Worker) que guarda as chaves do Omie. Deixe em branco para desligar a busca automática.</p>
+        <div class="row" style="align-items:flex-end">
+          <label class="f" style="flex:1">Endereço da ponte<input type="url" id="cfgOmieUrl" placeholder="https://romaneio-omie.SEU-USUARIO.workers.dev"></label>
+          <button class="btn sec" id="btnOmieTeste">Testar</button>
+          <button class="btn" id="btnOmieSalvar">Salvar</button>
         </div>
       </div>
       <div class="card">
@@ -487,6 +506,8 @@ const LocalDB={
   async listarOcorrencias(a,b){return LS.get('rnfe_ocor',[]).filter(o=>o.ms>=a&&o.ms<=b);},
   async mapaProdutos(){const m={};Object.values(LS.get('rnfe_prods',{})).forEach(p=>{if(p.ean)m[gtinNorm(p.ean)]=p;});return m;},
   async getParamEmb(){return LS.get('rnfe_param_emb',null);},
+  async getIntegracoes(){return LS.get('rnfe_integr',null);},
+  async salvarIntegracoes(p){LS.set('rnfe_integr',p);},
   async salvarParamEmb(p){LS.set('rnfe_param_emb',p);},
   async getProdutos(ids){const m=LS.get('rnfe_prods',{}),o={};ids.forEach(i=>{if(m[i])o[i]=m[i];});return o;},
   async salvarProdutos(l){const m=LS.get('rnfe_prods',{});l.forEach(p=>m[p.cProd]={...(m[p.cProd]||{}),...p});if(!LS.set('rnfe_prods',m))throw new Error('falha ao salvar');},
@@ -528,6 +549,8 @@ const FireDB={
   async listarOcorrencias(a,b){const q=await fdb.collection('conf_ocorrencias').where('ms','>=',a).where('ms','<=',b).orderBy('ms','desc').limit(10000).get();return q.docs.map(d=>d.data());},
   async mapaProdutos(){const s=await fdb.collection('produtos').get();const m={};s.docs.forEach(d=>{const p=d.data();if(p.ean)m[gtinNorm(p.ean)]=p;});return m;},
   async getParamEmb(){const s=await fdb.collection('config').doc('embalagem').get();return s.exists?s.data():null;},
+  async getIntegracoes(){const s=await fdb.collection('config').doc('integracoes').get();return s.exists?s.data():null;},
+  async salvarIntegracoes(p){await fdb.collection('config').doc('integracoes').set(p,{merge:true});},
   async salvarParamEmb(p){await fdb.collection('config').doc('embalagem').set(p,{merge:true});},
   async getProdutos(ids){const o={};const sn=await Promise.all(ids.map(id=>fdb.collection('produtos').doc(docIdProd(id)).get()));sn.forEach(s=>{if(s.exists){const d=s.data();o[d.cProd]=d;}});return o;},
   async salvarProdutos(l){for(let i=0;i<l.length;i+=400){const b=fdb.batch();l.slice(i,i+400).forEach(p=>b.set(fdb.collection('produtos').doc(docIdProd(p.cProd)),p,{merge:true}));await b.commit();}},
@@ -592,7 +615,7 @@ function mostrarLogin(){$('#app').classList.add('hidden');$('#login').classList.
 function msgLogin(t,c='err'){const m=$('#loginMsg');m.className='feedback '+c;m.textContent=t;}
 async function entrar(u){USER=u;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#userName').textContent=u.nome+(u.email?' · '+u.email:'');
   $('#demoBanner').classList.toggle('hidden',MODO_FIREBASE);$('#tabCfgBtn').classList.toggle('hidden',!isGestor());
-  await carregarMods();await carregarParamEmb();carregarDraft();renderDraft();renderEmb();focarScan();focarEmb();}
+  await carregarMods();await carregarParamEmb();await carregarIntegracoes();carregarDraft();renderDraft();renderEmb();focarScan();focarEmb();}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();
   if(!MODO_FIREBASE){const nome=$('#lNome').value.trim();if(!nome)return msgLogin('Informe seu nome.');const u={uid:'local-'+nome.toLowerCase().replace(/\W+/g,'-'),nome,email:''};LS.set('rnfe_local_user',u);return entrar(u);}
   try{msgLogin('Entrando…','warn');await fauth.signInWithEmailAndPassword($('#lEmail').value.trim(),$('#lSenha').value);}
@@ -1285,6 +1308,38 @@ $('#embCancelar').onclick=async()=>{if(!EMB)return;const ok=await dialogo({titul
   if(ok){await registrarOcorrencia('abandono');EMB=null;renderEmb();embMsg('Conferência abandonada.','warn');}focarEmb();};
 document.addEventListener('click',e=>{if(!$('#tab-emb').classList.contains('hidden')&&!e.target.closest('input,select,button,textarea,a,.modal-bg'))setTimeout(focarEmb,50);});
 window.addEventListener('beforeunload',e=>{if(EMB){e.preventDefault();e.returnValue='';}});
+
+/* ================= INTEGRAÇÃO OMIE ================= */
+let INTEGR={omieUrl:''};
+async function carregarIntegracoes(){try{const p=await DB.getIntegracoes();if(p)INTEGR={...INTEGR,...p};}catch(e){console.warn('integracoes',e);}
+  const ok=MODO_FIREBASE&&/^https:\/\//.test(INTEGR.omieUrl||'');$('#omieCard').classList.toggle('hidden',!ok);
+  if(ok&&!$('#omieDe').value){const h=new Date(),d=new Date(Date.now()-6*864e5),f=x=>new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10);$('#omieDe').value=f(d);$('#omieAte').value=f(h);}
+  if($('#cfgOmieUrl'))$('#cfgOmieUrl').value=INTEGR.omieUrl||'';}
+async function chamarOmie(rota,corpo){const base=String(INTEGR.omieUrl||'').replace(/\/+$/,'');if(!base)throw new Error('ponte do Omie não configurada');
+  const tk=fauth&&fauth.currentUser?await fauth.currentUser.getIdToken():'';
+  const r=await fetch(base+rota,{method:corpo?'POST':'GET',headers:{'Content-Type':'application/json',...(tk?{Authorization:'Bearer '+tk}:{})},body:corpo?JSON.stringify(corpo):undefined});
+  let d={};try{d=await r.json();}catch(e){}if(!r.ok)throw new Error(d.erro||('erro '+r.status));return d;}
+$('#btnOmie').onclick=async()=>{const msg=$('#omieMsg'),btn=$('#btnOmie');const de=$('#omieDe').value,ate=$('#omieAte').value;
+  if(!de||!ate||de>ate)return toast('Escolha um período válido.','erro');
+  if((Date.parse(ate)-Date.parse(de))/864e5>62)return toast('Período máximo de 62 dias por busca.','erro');
+  btn.disabled=true;msg.textContent='Consultando o Omie…';
+  try{const {notas=[]}=await chamarOmie('/listar',{desde:de,ate});
+    const novas=[];for(let i=0;i<notas.length;i+=20){const lote=notas.slice(i,i+20);const ex=await Promise.all(lote.map(n=>n.chave?DB.getNota(n.chave).catch(()=>null):null));lote.forEach((n,k)=>{if(!ex[k])novas.push(n);});}
+    if(!novas.length){msg.innerHTML=`<span class="pill ok">Tudo em dia</span> ${notas.length} NF-e no Omie no período — todas já estão na base.`;return;}
+    const files=[],falhas=[];
+    for(let i=0;i<novas.length;i+=40){msg.textContent=`Baixando XMLs… ${Math.min(i+40,novas.length)}/${novas.length}`;
+      const {xmls=[]}=await chamarOmie('/xml',{ids:novas.slice(i,i+40).map(n=>n.id)});
+      xmls.forEach(x=>{const n=novas.find(y=>String(y.id)===String(x.id))||{};if(x.xml)files.push(new File([x.xml],`NFe${n.chave||x.id}.xml`,{type:'text/xml'}));else falhas.push(`NF ${n.numero||x.id}: ${x.erro||'sem XML'}`);});}
+    msg.innerHTML=`${notas.length} NF-e no Omie · ${notas.length-novas.length} já na base · ${files.length} baixada(s)${falhas.length?` · <b>${falhas.length} com problema</b>: ${esc(falhas.slice(0,5).join('; '))}`:''}`;
+    if(files.length)await importarArquivos(files);
+  }catch(e){msg.innerHTML=`<span class="pill warn">Não foi possível buscar</span> ${esc(e.message)}`;}
+  finally{btn.disabled=false;}};
+$('#btnOmieSalvar').onclick=async()=>{if(!isGestor())return;const u=$('#cfgOmieUrl').value.trim().replace(/\/+$/,'');
+  if(u&&!/^https:\/\/[\w.-]+(\/[\w./-]*)?$/.test(u))return toast('Endereço inválido (precisa começar com https://).','erro');
+  try{await DB.salvarIntegracoes({omieUrl:u,atualizadoPor:USER.nome,atualizadoMs:Date.now()});INTEGR.omieUrl=u;await carregarIntegracoes();toast(u?'Integração salva.':'Integração desligada.','ok');}catch(e){toast('Erro: '+traduzErro(e),'erro');}};
+$('#btnOmieTeste').onclick=async()=>{const u=$('#cfgOmieUrl').value.trim().replace(/\/+$/,'');if(!u)return toast('Informe o endereço.','erro');
+  try{const r=await fetch(u+'/saude');const d=await r.json();toast(d.ok?(d.omieConfigurado?'Ponte OK e chaves do Omie configuradas.':'Ponte OK, mas faltam as chaves do Omie no Worker.'):'Resposta inesperada.',d.ok&&d.omieConfigurado?'ok':'erro');}
+  catch(e){toast('Não consegui falar com a ponte: '+e.message,'erro');}};
 
 /* ================= CONFIGURAÇÕES: parâmetros e produtos ================= */
 function renderCfgEmb(){if(!isGestor())return;$('#cfgLimMult').value=PARAM_EMB.limiteMultiplos;$('#cfgDiasVal').value=PARAM_EMB.diasValidade;contarProdutos();}
