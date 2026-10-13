@@ -29,6 +29,38 @@ header.top button{background:transparent;border:1px solid rgba(255,255,255,.4);c
 nav.tabs{display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--line);padding:0 16px;overflow-x:auto}
 nav.tabs button{border:0;background:none;padding:12px 14px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;font-weight:550}
 nav.tabs button.on{color:var(--pri);border-bottom-color:var(--pri)}
+/* painel TV */
+#painel{position:fixed;inset:0;background:#0b1424;color:#e8eef8;z-index:50;display:flex;flex-direction:column;font-size:18px;overflow:hidden}
+#painel .pn-top{display:flex;align-items:center;gap:22px;padding:14px 24px;background:#10203a;border-bottom:1px solid #22385c}
+#painel .pn-top h1{margin:0;font-size:26px;color:#fff;white-space:nowrap}
+#painel .pn-relogio{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums}
+#painel .pn-kpi{display:flex;gap:14px;margin-left:auto}
+#painel .pn-kpi div{background:#16294a;border-radius:10px;padding:6px 12px;text-align:center;min-width:96px}
+#painel .pn-kpi b{display:block;font-size:30px;color:#fff}
+#painel .pn-kpi span{font-size:12px;color:#9fb3d1;display:block;max-width:120px}
+#painel .pn-coleta{padding:6px 16px;border-radius:10px;font-weight:700;white-space:nowrap}
+#painel .pn-alertas{padding:8px 24px;display:flex;gap:10px;flex-wrap:wrap;min-height:20px}
+#painel .pn-alertas span{background:#5a1d1d;color:#ffd7d7;border-radius:8px;padding:5px 12px;font-size:16px;font-weight:600}
+#painel .pn-cols{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:0 24px 18px;min-height:0}
+#painel .pn-col{background:#111f37;border-radius:12px;display:flex;flex-direction:column;min-height:0}
+#painel .pn-col h2{margin:0;padding:12px 14px;font-size:20px;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #22385c}
+#painel .pn-col h2 b{background:#22385c;border-radius:20px;padding:0 12px}
+#painel .pn-lista{overflow:hidden;padding:10px;display:flex;flex-direction:column;gap:8px}
+#painel .pn-card{background:#1a2d4f;border-radius:10px;padding:10px 12px;border-left:6px solid #3d5a86}
+#painel .pn-card.sedex{border-left-color:#f5b400}
+#painel .pn-card.pend{border-left-color:#e5484d}
+#painel .pn-card.novo{animation:pnpisca 1s ease-in-out 8}
+@keyframes pnpisca{50%{background:#2f6f3e}}
+#painel .pn-card .l1{display:flex;justify-content:space-between;font-weight:700;font-size:20px}
+#painel .pn-card .l2{font-size:15px;color:#c5d3e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#painel .pn-card .l3{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;font-size:13px}
+#painel .tag{border-radius:6px;padding:1px 8px;background:#2a446f}
+#painel .tag.y{background:#6b5200;color:#ffe9a6}#painel .tag.r{background:#7a1f22;color:#ffd7d7}#painel .tag.g{background:#1f5a34;color:#c9f5d6}
+#painel .pn-mais{color:#9fb3d1;text-align:center;font-size:14px}
+#painel .pn-rod{padding:6px 24px;font-size:13px;color:#7f95b6;display:flex;gap:14px}
+#painel button{font-size:14px}
+#painel .sp{flex:1}
+.chart-bars{width:100%;height:auto}
 main{max-width:1280px;margin:0 auto;padding:18px 16px 60px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
 .card h2{font-size:15px;margin:0 0 12px}
@@ -180,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.6.2 (2026-10-13)";
+const APP_VERSAO = "1.7.0 (2026-10-13)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -200,19 +232,34 @@ const APP_VERSAO = "1.6.2 (2026-10-13)";
 </div>
 
 <!-- ============ APP ============ -->
+<div id="painel" class="hidden">
+  <div class="pn-top"><h1>Expedição · Painel</h1><div class="pn-relogio" id="pnRelogio">--:--</div><div class="pn-coleta" id="pnColeta"></div>
+    <div class="pn-kpi"><div><b id="pnKFat">0</b><span>faturadas hoje</span></div><div><b id="pnKConf">0</b><span>conferidas hoje</span></div><div><b id="pnKExp">0</b><span>expedidas hoje</span></div><div><b id="pnKMed">—</b><span>min médio fat.→expedição</span></div></div></div>
+  <div class="pn-alertas" id="pnAlertas"></div>
+  <div class="pn-cols">
+    <div class="pn-col"><h2>Faturadas <b id="pnN1">0</b></h2><div class="pn-lista" id="pnL1"></div></div>
+    <div class="pn-col"><h2>Conferindo <b id="pnN2">0</b></h2><div class="pn-lista" id="pnL2"></div></div>
+    <div class="pn-col"><h2>Prontas p/ expedir <b id="pnN3">0</b></h2><div class="pn-lista" id="pnL3"></div></div>
+    <div class="pn-col"><h2>Expedidas hoje <b id="pnN4">0</b></h2><div class="pn-lista" id="pnL4"></div></div>
+  </div>
+  <div class="pn-rod"><span id="pnAtual">Conectando…</span><span class="sp"></span><button class="btn sec sm" id="pnSom">🔔 Ativar som</button><button class="btn sec sm" id="pnTela">Tela cheia</button><button class="btn sec sm" id="pnSair">Fechar painel</button></div>
+</div>
+<input type="file" id="etqFile" accept="application/pdf,.pdf" class="hidden">
+
 <div id="app" class="hidden">
   <header class="top">
     <h1>Romaneio NF-e</h1>
     <div class="sp"></div>
+    <button id="btnPainel" title="Abrir o painel da expedição para a TV">Painel TV</button>
     <div class="user" id="userName"></div>
     <button id="btnSair">Sair</button>
   </header>
   <div class="banner hidden" id="demoBanner">MODO DEMONSTRAÇÃO: os dados ficam só neste navegador. Configure o Firebase para uso da equipe.</div>
   <nav class="tabs">
-    <button data-tab="emb" class="on">Embalagem</button>
-    <button data-tab="exp">Expedição</button>
+    <button data-tab="emb" class="on" id="tabEmbBtn">Embalagem</button>
+    <button data-tab="exp" id="tabExpBtn">Expedição</button>
     <button data-tab="base">Base de XMLs</button>
-    <button data-tab="hist">Histórico</button>
+    <button data-tab="hist" id="tabHistBtn">Histórico</button>
     <button data-tab="rel">Relatórios</button>
     <button data-tab="cfg" id="tabCfgBtn" class="hidden">Configurações</button>
   </nav>
@@ -317,7 +364,7 @@ const APP_VERSAO = "1.6.2 (2026-10-13)";
     <section id="tab-rel" class="hidden">
       <div class="card">
         <div class="row" style="align-items:flex-end">
-          <label class="f">Relatório de<select id="rTipo"><option value="exp">Expedição (romaneios)</option><option value="emb">Qualidade da embalagem</option></select></label>
+          <label class="f">Relatório de<select id="rTipo"><option value="exp">Expedição (romaneios)</option><option value="emb">Qualidade da embalagem</option><option value="tempos">Tempos do processo</option></select></label>
           <label class="f">De<input type="date" id="rDe"></label>
           <label class="f">Até<input type="date" id="rAte"></label>
           <label class="f" id="rModWrap">Modalidade<select id="rMod"><option value="">Todas</option></select></label>
@@ -356,11 +403,11 @@ const APP_VERSAO = "1.6.2 (2026-10-13)";
         <div class="row" style="align-items:flex-end">
           <label class="f">Nome<input type="text" id="usrNome" placeholder="Ex.: Ana Souza"></label>
           <label class="f">E-mail<input type="email" id="usrEmail" placeholder="ana@exemplo.com"></label>
-          <label class="f">Perfil<select id="usrPerfil"><option value="auxiliar">Auxiliar</option><option value="gestor">Gestor</option></select></label>
+          <label class="f">Perfil<select id="usrPerfil"><option value="auxiliar">Auxiliar (expedição)</option><option value="faturamento">Faturamento</option><option value="gestor">Gestor</option></select></label>
           <button class="btn" id="btnUsrAdd">Cadastrar</button>
         </div>
         <h2 style="margin-top:20px">Colar vários usuários</h2>
-        <p class="muted small" style="margin-top:-6px">Uma pessoa por linha: <b>Nome; e-mail; perfil</b> (perfil = gestor ou auxiliar; se ficar vazio, entra como auxiliar). Pode colar direto do Excel, com as três colunas.</p>
+        <p class="muted small" style="margin-top:-6px">Uma pessoa por linha: <b>Nome; e-mail; perfil</b> (perfil = gestor, auxiliar ou faturamento; se ficar vazio, entra como auxiliar). Pode colar direto do Excel, com as três colunas.</p>
         <textarea id="usrColar" placeholder="Ana Souza; ana@exemplo.com; auxiliar&#10;Carlos Lima; carlos@exemplo.com; gestor"></textarea>
         <div class="row" style="margin-top:8px"><button class="btn sec" id="btnUsrPrev">Conferir lista</button></div>
         <div id="usrPrev" style="margin-top:10px"></div>
@@ -370,6 +417,7 @@ const APP_VERSAO = "1.6.2 (2026-10-13)";
         <div class="row" style="align-items:flex-end">
           <label class="f">Liberar múltiplos para itens com quantidade acima de<input type="number" id="cfgLimMult" min="1" max="1000" style="width:120px"></label>
           <label class="f">Alertar validade menor que (dias)<input type="number" id="cfgDiasVal" min="0" max="3650" style="width:120px"></label>
+          <label class="f">Horário limite da coleta (painel)<input type="time" id="cfgColeta" style="width:120px"></label>
           <button class="btn" id="btnParamEmb">Salvar parâmetros</button>
         </div>
       </div>
@@ -511,11 +559,17 @@ const LocalDB={
   async salvarIntegracoes(p){LS.set('rnfe_integr',p);},
   async salvarParamEmb(p){LS.set('rnfe_param_emb',p);},
   async getProdutos(ids){const m=LS.get('rnfe_prods',{}),o={};ids.forEach(i=>{if(m[i])o[i]=m[i];});return o;},
+  async salvarEtiqueta(ch,resumo,pdfB64){const e=LS.get('rnfe_etq',{});e[ch]={chave:ch,pdfB64,...resumo};if(!LS.set('rnfe_etq',e))throw new Error('armazenamento cheio');const n=LS.get('rnfe_notas',{});if(n[ch]){n[ch].etiqueta=resumo;LS.set('rnfe_notas',n);}},
+  async getEtiquetaPdf(ch){const e=LS.get('rnfe_etq',{})[ch];return e?e.pdfB64:null;},
+  async marcarEmConferencia(ch,v){const n=LS.get('rnfe_notas',{});if(n[ch]){n[ch].emConferencia=v;LS.set('rnfe_notas',n);}},
+  async listarNotasDesde(ms){return Object.values(LS.get('rnfe_notas',{})).filter(n=>(n.importadoMs||0)>=ms);},
+  async listarNotasPeriodo(a,b){return Object.values(LS.get('rnfe_notas',{})).filter(n=>(n.importadoMs||0)>=a&&(n.importadoMs||0)<=b);},
+  observarNotas(ms,cb){const f=()=>cb(Object.values(LS.get('rnfe_notas',{})).filter(n=>(n.importadoMs||0)>=ms));f();const t=setInterval(f,5000);return ()=>clearInterval(t);},
   async salvarProdutos(l){const m=LS.get('rnfe_prods',{});l.forEach(p=>m[p.cProd]={...(m[p.cProd]||{}),...p});if(!LS.set('rnfe_prods',m))throw new Error('falha ao salvar');},
   async contarProdutos(){return Object.keys(LS.get('rnfe_prods',{})).length;},
   async buscarProduto(q){const Q=q.toUpperCase();return Object.values(LS.get('rnfe_prods',{})).filter(p=>p.cProd.toUpperCase().includes(Q)||p.ean.includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
   async registrarOcorrencia(o){const a=LS.get('rnfe_ocor',[]);a.push(o);LS.set('rnfe_ocor',a.slice(-5000));},
-  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave+'_'+c.fimMs]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;n[c.chave].volumesEtiq=c.volumesEtiq;LS.set('rnfe_notas',n);}},
+  async salvarConferencia(c){const m=LS.get('rnfe_confs',{});m[c.chave+'_'+c.fimMs]=c;if(!LS.set('rnfe_confs',m))throw new Error('falha ao salvar');const n=LS.get('rnfe_notas',{});if(n[c.chave]){n[c.chave].conferida=true;n[c.chave].conferenciaMs=c.fimMs;n[c.chave].conferidoPor=c.operador.nome;n[c.chave].volumesEtiq=c.volumesEtiq;n[c.chave].emConferencia=null;LS.set('rnfe_notas',n);}},
   async listarUsuarios(){return Object.values(LS.get('rnfe_users',{})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){return LS.get('rnfe_users',{})[em]||null;},
   async salvarUsuario(u){const m=LS.get('rnfe_users',{});m[u.email]={...(m[u.email]||{}),...u};if(!LS.set('rnfe_users',m))throw new Error('falha ao salvar neste navegador');},
@@ -534,7 +588,7 @@ const LocalDB={
     for(const it of grupo.itens){const n=m[it.nota.chave];if(!n)throw new Error(`NF ${it.nota.numero} não está mais na base`);if(n.romaneioId)throw new Error(`NF ${n.numero} já está no romaneio Nº ${pad(n.romaneioNumero)}`);}
     const num=LS.get('rnfe_seq',0)+1;const r=montarRomaneio(grupo,resp,num);r.id='L'+Date.now()+Math.random().toString(36).slice(2,7);
     const roms=LS.get('rnfe_roms',[]);roms.push(r);
-    for(const it of grupo.itens){m[it.nota.chave].romaneioId=r.id;m[it.nota.chave].romaneioNumero=num;}
+    for(const it of grupo.itens){m[it.nota.chave].romaneioId=r.id;m[it.nota.chave].romaneioNumero=num;m[it.nota.chave].expedidoMs=r.criadoMs;}
     LS.set('rnfe_roms',roms);LS.set('rnfe_notas',m);LS.set('rnfe_seq',num);return r;},
   async listarRomaneios(de,ate){return LS.get('rnfe_roms',[]).filter(r=>r.criadoMs>=de&&r.criadoMs<=ate).sort((a,b)=>b.criadoMs-a.criadoMs||b.numero-a.numero);},
   async cancelarRomaneio(id,motivo,user){const roms=LS.get('rnfe_roms',[]);const r=roms.find(x=>x.id===id);if(!r||r.status==='cancelado')throw new Error('romaneio não encontrado ou já cancelado');
@@ -558,7 +612,13 @@ const FireDB={
   async contarProdutos(){const s=await fdb.collection('produtos').get();return s.size;},
   async buscarProduto(q){const s=await fdb.collection('produtos').get();const Q=q.toUpperCase();return s.docs.map(d=>d.data()).filter(p=>String(p.cProd).toUpperCase().includes(Q)||String(p.ean).includes(q)||(p.descricao||'').toUpperCase().includes(Q)).slice(0,50);},
   async registrarOcorrencia(o){await fdb.collection('conf_ocorrencias').add(o);},
-  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave+'_'+c.fimMs),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome,volumesEtiq:c.volumesEtiq});await b.commit();},
+  async salvarEtiqueta(ch,resumo,pdfB64){const b=fdb.batch();b.set(fdb.collection('etiquetas').doc(ch),{chave:ch,pdfB64,...resumo});b.update(fdb.collection('notas').doc(ch),{etiqueta:resumo});await b.commit();},
+  async getEtiquetaPdf(ch){const s=await fdb.collection('etiquetas').doc(ch).get();return s.exists?s.data().pdfB64:null;},
+  async marcarEmConferencia(ch,v){await fdb.collection('notas').doc(ch).update({emConferencia:v});},
+  async listarNotasDesde(ms){const q=await fdb.collection('notas').where('importadoMs','>=',ms).get();return q.docs.map(d=>d.data());},
+  async listarNotasPeriodo(a,b){const q=await fdb.collection('notas').where('importadoMs','>=',a).where('importadoMs','<=',b).limit(3000).get();return q.docs.map(d=>d.data());},
+  observarNotas(ms,cb,err){return fdb.collection('notas').where('importadoMs','>=',ms).onSnapshot(s=>cb(s.docs.map(d=>d.data())),e=>err&&err(e));},
+  async salvarConferencia(c){const b=fdb.batch();b.set(fdb.collection('conferencias').doc(c.chave+'_'+c.fimMs),c);b.update(fdb.collection('notas').doc(c.chave),{conferida:true,conferenciaMs:c.fimMs,conferidoPor:c.operador.nome,volumesEtiq:c.volumesEtiq,emConferencia:null});await b.commit();},
   async listarUsuarios(){const q=await fdb.collection('usuarios').get();return q.docs.map(d=>d.data()).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));},
   async getUsuario(em){const s=await fdb.collection('usuarios').doc(em).get();return s.exists?s.data():null;},
   async salvarUsuario(u){await fdb.collection('usuarios').doc(u.email).set(u,{merge:true});},
@@ -593,7 +653,7 @@ const FireDB={
       const num=(cSnap.exists?(cSnap.data().ultimo||0):0)+1;
       const rRef=fdb.collection('romaneios').doc();const r=montarRomaneio(grupo,resp,num);r.id=rRef.id;
       t.set(rRef,r);t.set(cRef,{ultimo:num},{merge:true});
-      refs.forEach(ref=>t.update(ref,{romaneioId:r.id,romaneioNumero:num}));
+      refs.forEach(ref=>t.update(ref,{romaneioId:r.id,romaneioNumero:num,expedidoMs:r.criadoMs}));
       return r;});},
   async listarRomaneios(de,ate){const q=await fdb.collection('romaneios').where('criadoMs','>=',de).where('criadoMs','<=',ate).orderBy('criadoMs','desc').limit(2000).get();return q.docs.map(d=>d.data());},
   async cancelarRomaneio(id,motivo,user){
@@ -616,7 +676,8 @@ function mostrarLogin(){$('#app').classList.add('hidden');$('#login').classList.
 function msgLogin(t,c='err'){const m=$('#loginMsg');m.className='feedback '+c;m.textContent=t;}
 async function entrar(u){USER=u;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#userName').textContent=u.nome+(u.email?' · '+u.email:'');
   $('#demoBanner').classList.toggle('hidden',MODO_FIREBASE);$('#tabCfgBtn').classList.toggle('hidden',!isGestor());
-  await carregarMods();await carregarParamEmb();await carregarIntegracoes();carregarDraft();renderDraft();renderEmb();focarScan();focarEmb();}
+  await carregarMods();await carregarParamEmb();await carregarIntegracoes();carregarDraft();renderDraft();renderEmb();aplicarPerfilUI();focarScan();focarEmb();
+  if(/[?&]painel=1/.test(location.search))abrirPainel();}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();
   if(!MODO_FIREBASE){const nome=$('#lNome').value.trim();if(!nome)return msgLogin('Informe seu nome.');const u={uid:'local-'+nome.toLowerCase().replace(/\W+/g,'-'),nome,email:''};LS.set('rnfe_local_user',u);return entrar(u);}
   try{msgLogin('Entrando…','warn');await fauth.signInWithEmailAndPassword($('#lEmail').value.trim(),$('#lSenha').value);}
@@ -638,7 +699,7 @@ if(MODO_FIREBASE){fauth.onAuthStateChanged(async u=>{
       if(perfil==='gestor')await semearUsuarios();
       unsubUser=fdb.collection('usuarios').doc(em).onSnapshot(sn=>{const d=sn.data();
         if(em!==SUPER_GESTOR&&(!d||d.ativo===false)){toast('Seu acesso foi desativado pelo gestor.','erro');fauth.signOut();return;}
-        if(d&&USER){const p2=em===SUPER_GESTOR?'gestor':d.perfil;if(d.nome!==USER.nome||p2!==USER.perfil){USER.nome=d.nome;USER.perfil=p2;$('#userName').textContent=USER.nome+' · '+USER.email;$('#tabCfgBtn').classList.toggle('hidden',!isGestor());}}
+        if(d&&USER){const p2=em===SUPER_GESTOR?'gestor':d.perfil;if(d.nome!==USER.nome||p2!==USER.perfil){USER.nome=d.nome;USER.perfil=p2;$('#userName').textContent=USER.nome+' · '+USER.email;$('#tabCfgBtn').classList.toggle('hidden',!isGestor());aplicarPerfilUI();}}
       },()=>{});
     }catch(err){console.error(err);try{await fauth.signOut();}catch(e){}mostrarLogin();msgLogin('Não foi possível validar seu acesso: '+traduzErro(err));}
   });}
@@ -716,6 +777,7 @@ async function adicionarNF(ch){
   if(!n){const k=decodificarChave(ch);bip(false);feedback(`NF ${esc(k.numero)} (série ${esc(k.serie)}) não está na base. Importe o XML na aba <b>Base de XMLs</b> e bipe novamente.`,'err');return null;}
   if(n.romaneioId){bip(false);feedback(`BLOQUEADO: NF ${esc(n.numero)} já está no romaneio Nº ${pad(n.romaneioNumero)}. Cancele aquele romaneio no Histórico se precisar reenviar.`,'err');return null;}
   if(!n.conferida){bip(false);feedback(`BLOQUEADO: a NF ${esc(n.numero)} <b>ainda não foi conferida na Embalagem</b>. Confira os itens antes de expedir.`,'err');return null;}
+  const ev=envioDe(n);if(ev.exige&&!n.etiqueta&&SESS.mod&&['correios','transportadora'].includes(SESS.mod.tipo)){bip(false);feedback(`BLOQUEADO: a NF ${esc(n.numero)} é <b>${esc(ev.rotulo)}</b> e ainda não tem a <b>etiqueta de envio anexada</b>. O faturamento precisa anexar o PDF na aba Base de XMLs.`,'err');return null;}
   const it={nota:n,vols:{},bipadoMs:Date.now(),alertaMod:alertaModalidade(n,SESS.mod)};DRAFT.unshift(it);return it;}
 async function processarLeitura(raw){
   if(processando)return;
@@ -726,6 +788,8 @@ async function processarLeitura(raw){
     if(RE_POSTAGEM.test(cod)){
       if(!pend){bip(false);return feedback('Nenhum volume aguardando código de postagem. Bipe primeiro a etiqueta de volume.','warn');}
       const dup=todosRastreios().find(x=>x.cod===cod);if(dup){bip(false);return feedback(`O código ${esc(cod)} já foi usado na NF ${esc(dup.nf)} vol ${dup.v}.`,'err');}
+      const esperados=(pend.it.nota.etiqueta&&pend.it.nota.etiqueta.codigos)||[];
+      if(esperados.length&&!esperados.includes(cod)){bip(false);return feedback(`<b>Etiqueta errada!</b> O código ${esc(cod)} não é da NF ${esc(pend.it.nota.numero)}. Etiquetas anexadas pelo faturamento: ${esc(esperados.join(', '))}. Confira a caixa.`,'err');}
       pend.it.vols[pend.v].rastreio=cod;salvarDraft();renderDraft();bip(true);
       return feedback(`✔ Código de postagem ${esc(cod)} vinculado à NF ${esc(pend.it.nota.numero)} · volume ${pend.v}.`,'ok');}
     if(pend){bip(false);return feedback(`Bipe agora a <b>etiqueta de postagem</b> do volume ${pend.v} da NF ${esc(pend.it.nota.numero)} (código tipo AA123456789BR).`,'warn');}
@@ -844,6 +908,7 @@ $('#btnCam').onclick=async()=>{
 /* ================= BASE DE XMLs ================= */
 const drop=$('#drop');
 drop.onclick=()=>$('#fileInput').click();
+$('#importResult').addEventListener('click',e=>{const a=e.target.closest('button[data-anexar]');if(a)escolherEtiqueta(a.dataset.anexar);});
 drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
 drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
 drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');importarArquivos([...e.dataTransfer.files]);});
@@ -871,20 +936,23 @@ async function importarArquivos(files){
   res.innerHTML=`<div class="feedback ${erros.length?'warn':'ok'}" style="display:block">${r.novas} nota(s) nova(s) · ${r.atual} atualizada(s)${semProt?` · ${semProt} sem protocolo de autorização`:''}${erros.length?` · ${erros.length} arquivo(s) ignorado(s)`:''}</div>
     ${erros.length?`<details style="margin-top:8px"><summary class="small">Ver arquivos ignorados</summary><ul class="small">${erros.slice(0,200).map(e=>`<li>${esc(e)}</li>`).join('')}</ul></details>`:''}`;
   if(notas.length)toast(`${notas.length} nota(s) importada(s)`,'ok');
+  try{const pend=[];for(const n of notas){const ev=envioDe(n);if(!ev.exige)continue;const atual=await DB.getNota(n.chave);if(atual&&!atual.etiqueta)pend.push(atual);}
+    if(pend.length)res.insertAdjacentHTML('beforeend',`<div class="feedback warn" style="display:block;margin-top:8px"><b>${pend.length} NF(s) precisam da etiqueta de envio (PDF).</b> Anexe agora:<div style="margin-top:6px">${pend.map(n=>`<div class="row" style="margin:4px 0"><span><b>NF ${esc(n.numero)}</b> · ${esc(n.cliente.nome)} · ${esc(envioDe(n).rotulo)} · ${+n.volumes||0} volume(s)</span> <button class="btn sm" data-anexar="${esc(n.chave)}">Anexar etiqueta (PDF)</button></div>`).join('')}</div></div>`);}catch(e){console.warn('pendentes etiqueta',e);}
   listarBase();
 }
 async function listarBase(){
   const area=$('#baseList');area.innerHTML='<p class="muted">Carregando…</p>';
   try{const a=await DB.listarNotas($('#baseBusca').value);
     if(!a.length){area.innerHTML='<div class="empty">Nenhuma nota encontrada.</div>';return;}
-    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Embalagem</th><th>Situação</th></tr></thead><tbody>
+    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Etiqueta de envio</th><th>Embalagem</th><th>Situação</th></tr></thead><tbody>
     ${a.map(n=>`<tr><td><b>${esc(n.numero)}</b> <span class="small muted">s.${esc(n.serie)}</span></td><td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}</td><td>${esc(cidadeUf(n.endereco))}</td><td>${esc(transpNome(n.transportadora))}</td><td class="num">${+n.volumes||0}</td>
+      <td>${celEtiqueta(n)}</td>
       <td>${n.conferida?`<span class="pill ok" title="${esc(n.conferidoPor||'')} · ${n.conferenciaMs?fmtDataHora(n.conferenciaMs):''}">Conferida</span> <button class="btn sec sm" data-etq="${esc(n.chave)}">Etiquetas</button>`:(Array.isArray(n.itens)?'<span class="pill warn">Não conferida</span>':'<span class="pill">Reimportar XML</span>')}</td>
       <td>${n.romaneioId?`<span class="pill ok">Romaneio Nº ${pad(n.romaneioNumero)}</span>`:'<span class="pill">Disponível</span>'} ${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td></tr>`).join('')}</tbody></table>
     <p class="muted small">${a.length} nota(s) exibida(s)${a.length>=300?' (as mais recentes; use a busca para encontrar outras)':''}.</p>`;
   }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
 }
-$('#baseList').addEventListener('click',e=>{const b=e.target.closest('button[data-etq]');if(b)reimprimirEtiquetas(b.dataset.etq);});
+$('#baseList').addEventListener('click',e=>{const b=e.target.closest('button[data-etq]');if(b)return reimprimirEtiquetas(b.dataset.etq);const a=e.target.closest('button[data-anexar]');if(a)return escolherEtiqueta(a.dataset.anexar);const v=e.target.closest('button[data-veretq]');if(v)return verEtiqueta(v.dataset.veretq);});
 $('#btnBaseBuscar').onclick=listarBase;$('#baseBusca').addEventListener('keydown',e=>{if(e.key==='Enter')listarBase();});
 
 /* ================= PERÍODOS ================= */
@@ -988,6 +1056,7 @@ function imprimirRomaneios(rs){imprimirHtml(rs.map(htmlRomaneio).join(''),rs.len
 let REL=[];
 async function gerarRel(){
   if(tipoRel()==='emb')return gerarRelEmb();
+  if(tipoRel()==='tempos')return gerarRelTempos();
   const de=$('#rDe').value,ate=$('#rAte').value;if(!de||!ate)return toast('Informe o período.','erro');
   const area=$('#relArea');area.innerHTML='<div class="card muted">Carregando…</div>';
   try{REL=filtraMod(await DB.listarRomaneios(...rangeMs(de,ate)),'#rMod');area.innerHTML=htmlRelatorio(REL,de,ate,false);}
@@ -1025,8 +1094,8 @@ function htmlRelatorio(rs,de,ate,print){
     <div class="card"><h2>Divergências de volume</h2><div class="tbl-wrap">${blocoDiv}</div></div>`;
 }
 $('#btnRel').onclick=gerarRel;
-$('#btnRelPrint').onclick=async()=>{if(tipoRel()==='emb'){if(!RELEMB)await gerarRelEmb();if(!RELEMB)return;return imprimirHtml(htmlRelEmb(true),`Qualidade embalagem ${$('#rDe').value} a ${$('#rAte').value}`);}if(!REL.length)await gerarRel();if(!REL.length)return;imprimirHtml(htmlRelatorio(REL,$('#rDe').value,$('#rAte').value,true),`Relatorio expedicao ${$('#rDe').value} a ${$('#rAte').value}`);};
-$('#btnCsv').onclick=async()=>{if(tipoRel()==='emb')return csvEmb();if(!REL.length)await gerarRel();if(!REL.length)return toast('Nada para exportar.','erro');
+$('#btnRelPrint').onclick=async()=>{if(tipoRel()==='tempos'){if(!RELT)await gerarRelTempos();if(!RELT)return;return imprimirHtml(htmlRelTempos(true),`Tempos do processo ${$('#rDe').value} a ${$('#rAte').value}`);}if(tipoRel()==='emb'){if(!RELEMB)await gerarRelEmb();if(!RELEMB)return;return imprimirHtml(htmlRelEmb(true),`Qualidade embalagem ${$('#rDe').value} a ${$('#rAte').value}`);}if(!REL.length)await gerarRel();if(!REL.length)return;imprimirHtml(htmlRelatorio(REL,$('#rDe').value,$('#rAte').value,true),`Relatorio expedicao ${$('#rDe').value} a ${$('#rAte').value}`);};
+$('#btnCsv').onclick=async()=>{if(tipoRel()==='emb')return csvEmb();if(tipoRel()==='tempos')return csvTempos();if(!REL.length)await gerarRel();if(!REL.length)return toast('Nada para exportar.','erro');
   const cab=['Romaneio','Data/hora','Status','Modalidade','Evento','Transportadora/destino','CNPJ transportadora','Responsavel','NF','Serie','Emissao','Cliente','CNPJ/CPF cliente','Endereco','Cidade','UF','CEP','Codigo de postagem','Vol XML','Vol conferido','Diferenca','Alerta modalidade','Chave de acesso'];
   const q=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   const linhas=[cab.join(';')];
@@ -1058,10 +1127,10 @@ $('#btnCfgAdd').onclick=async()=>{if(!isGestor())return;const nome=$('#cfgNome')
   MODS.push({id,nome,tipo,ativo:true});$('#cfgNome').value='';await salvarMods(`Modalidade "${nome}" adicionada.`);};
 
 /* ================= USUÁRIOS (GESTOR) ================= */
-const PERFIS={gestor:'Gestor',auxiliar:'Auxiliar'};
+const PERFIS={gestor:'Gestor',auxiliar:'Auxiliar',faturamento:'Faturamento'};
 let USERS=[];
 const RE_EMAIL=/^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
-function normPerfil(p){p=String(p||'').trim().toLowerCase();if(!p)return 'auxiliar';if(p.startsWith('g'))return 'gestor';if(p.startsWith('a'))return 'auxiliar';return null;}
+function normPerfil(p){p=String(p||'').trim().toLowerCase();if(!p)return 'auxiliar';if(p.startsWith('g'))return 'gestor';if(p.startsWith('a')||p.startsWith('e'))return 'auxiliar';if(p.startsWith('f'))return 'faturamento';return null;}
 function traduzErro(e){const c=(e&&e.code)||'';
   if(c==='auth/invalid-email')return 'e-mail inválido';
   if(c==='auth/too-many-requests')return 'muitas tentativas seguidas; aguarde alguns minutos e tente de novo';
@@ -1132,7 +1201,7 @@ function parseColagem(txt){const vistos=new Set();
     const nome=resto[0]||'',perfilRaw=resto[1]||'',perfil=normPerfil(perfilRaw);
     let erro='';
     if(!nome)erro='sem nome';else if(!RE_EMAIL.test(email))erro='e-mail inválido';
-    else if(!perfil)erro=`perfil "${perfilRaw}" inválido (use gestor ou auxiliar)`;
+    else if(!perfil)erro=`perfil "${perfilRaw}" inválido (use gestor, auxiliar ou faturamento)`;
     else if(vistos.has(email))erro='repetido na lista';else if(USERS.some(x=>x.email===email))erro='já cadastrado';
     vistos.add(email);return {linha:i+1,nome,email,perfil:perfil||'',erro};}).filter(Boolean);}
 let PREVIA=[];
@@ -1146,7 +1215,7 @@ $('#usrPrev').addEventListener('click',async e=>{if(e.target.id!=='btnUsrCad'||!
   const lista=PREVIA.filter(x=>!x.erro);e.target.disabled=true;await cadastrarUsuarios(lista);$('#usrColar').value='';$('#usrPrev').innerHTML='';PREVIA=[];});
 
 /* ================= EMBALAGEM: conferência item a item ================= */
-const PARAM_EMB_PADRAO={limiteMultiplos:10,diasValidade:180};
+const PARAM_EMB_PADRAO={limiteMultiplos:10,diasValidade:180,horaColeta:'16:00'};
 let PARAM_EMB={...PARAM_EMB_PADRAO};
 async function carregarParamEmb(){try{const p=await DB.getParamEmb();if(p)PARAM_EMB={...PARAM_EMB_PADRAO,...p};}catch(e){console.warn('param emb',e);}}
 // GTIN: aceita 8/12/13/14 dígitos com dígito verificador válido; normaliza para 14 dígitos
@@ -1180,6 +1249,7 @@ async function embAbrir(ch){
     if(lotes.length>1&&Math.round(somaL)===Math.round(it.qCom)){lotes.forEach((l,k)=>linhas.push({id:it.n+'.'+k,n:it.n,cProd:it.cProd,ean,origem,xProd:it.xProd,uCom:it.uCom,qtd:Math.round(+l.qLote),lido:0,lote:l.nLote||'',dVal:l.dVal||'',loteOk:false,modos:{bipe:0,multiplo:0,manual:0},just:[]}));}
     else{const l=lotes[0]||{};linhas.push({id:String(it.n),n:it.n,cProd:it.cProd,ean,origem,xProd:it.xProd,uCom:it.uCom,qtd:Math.round(+it.qCom),lido:0,lote:l.nLote||'',dVal:l.dVal||'',loteOk:false,modos:{bipe:0,multiplo:0,manual:0},just:[]});}});
   EMB={nota:n,linhas,inicioMs:Date.now(),recontagens:0,atual:null,ocorr:[],reconf:!!n.conferida};
+  DB.marcarEmConferencia(n.chave,{uid:USER.uid,nome:USER.nome,ms:EMB.inicioMs}).catch(e=>console.warn('emConferencia',e));
   if(n.conferida)registrarOcorrencia('reconferencia');
   bip(true);renderEmb();
   const semEan=linhas.filter(l=>!l.ean).length;
@@ -1242,7 +1312,7 @@ async function embScan(raw){
     const ch=extrairChave(cod);
     if(ch&&chaveValida(ch)){
       if(EMB&&EMB.nota.chave!==ch){const ok=await dialogo({titulo:'Trocar de NF?',html:`<p>A conferência da NF ${esc(EMB.nota.numero)} não foi concluída e será <b>descartada</b> (fica registrado como abandono).</p>`,botoes:[{txt:'Continuar nesta NF',val:false,cls:'sec'},{txt:'Descartar e abrir outra',val:true,cls:'danger'}]});
-        if(!ok)return focarEmb();await registrarOcorrencia('abandono');EMB=null;}
+        if(!ok)return focarEmb();await registrarOcorrencia('abandono');DB.marcarEmConferencia(EMB.nota.chave,null).catch(()=>{});EMB=null;}
       if(EMB&&EMB.nota.chave===ch){embMsg('Esta NF já está aberta. Bipe os itens.','warn');return;}
       return await embAbrir(ch);}
     if(!EMB){bip(false);return embMsg('Bipe primeiro o DANFE para abrir a NF.','err');}
@@ -1309,7 +1379,7 @@ $('#embArea').addEventListener('click',async e=>{const b=e.target.closest('butto
   if(b.dataset.manual)return embManual(b.dataset.manual);});
 $('#embArea').addEventListener('keydown',e=>{if(e.target.classList.contains('embQtd')&&e.key==='Enter'){e.preventDefault();embSomar(e.target.value);}});
 $('#embCancelar').onclick=async()=>{if(!EMB)return;const ok=await dialogo({titulo:'Abandonar esta conferência?',html:'<p>Nada é gravado como conferido e o abandono fica registrado.</p>',botoes:[{txt:'Voltar',val:false,cls:'sec'},{txt:'Abandonar',val:true,cls:'danger'}]});
-  if(ok){await registrarOcorrencia('abandono');EMB=null;renderEmb();embMsg('Conferência abandonada.','warn');}focarEmb();};
+  if(ok){await registrarOcorrencia('abandono');DB.marcarEmConferencia(EMB.nota.chave,null).catch(()=>{});EMB=null;renderEmb();embMsg('Conferência abandonada.','warn');}focarEmb();};
 document.addEventListener('click',e=>{if(!$('#tab-emb').classList.contains('hidden')&&!e.target.closest('input,select,button,textarea,a,.modal-bg'))setTimeout(focarEmb,50);});
 window.addEventListener('beforeunload',e=>{if(EMB){e.preventDefault();e.returnValue='';}});
 
@@ -1345,12 +1415,130 @@ $('#btnOmieTeste').onclick=async()=>{const u=$('#cfgOmieUrl').value.trim().repla
   try{const r=await fetch(u+'/saude');const d=await r.json();toast(d.ok?(d.omieConfigurado?'Ponte OK e chaves do Omie configuradas.':'Ponte OK, mas faltam as chaves do Omie no Worker.'):'Resposta inesperada.',d.ok&&d.omieConfigurado?'ok':'erro');}
   catch(e){toast('Não consegui falar com a ponte: '+e.message,'erro');}};
 
+/* ================= ENVIO: ETIQUETA DOS CORREIOS / TRANSPORTADORA ================= */
+function envioDe(n){const t=(n&&n.transportadora)||{};const nome=String(t.nome||'').toUpperCase(),doc=onlyDig(t.doc||'');
+  if(/SEDEX|\bPAC\b|CORREIO/.test(nome)||doc.startsWith('34028316'))return {tipo:'correios',rotulo:'SEDEX (Correios)',exige:true};
+  if(nome.trim())return {tipo:'transportadora',rotulo:'Transportadora '+(t.nome||'').split(' ').slice(0,2).join(' '),exige:true};
+  return {tipo:'',rotulo:'',exige:false};}
+function rastreioValido(c){if(!/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(c))return false;const w=[8,6,4,2,3,5,9,7];let s=0;for(let i=0;i<8;i++)s+=(+c[2+i])*w[i];let r=11-s%11;r=r===10?0:(r===11?5:r);return r===+c[10];}
+function extrairRastreios(txt){const a=[];const re=/([A-Z]{2})\s?(\d{3})\s?(\d{3})\s?(\d{3})\s?([A-Z]{2})/g;let m;const T=String(txt||'').toUpperCase();
+  while((m=re.exec(T))){const c=m[1]+m[2]+m[3]+m[4]+m[5];if(rastreioValido(c)&&!a.includes(c))a.push(c);}return a;}
+function celEtiqueta(n){const ev=envioDe(n);if(!ev.exige)return '<span class="small muted">—</span>';
+  if(n.etiqueta){const c=n.etiqueta.codigos||[];return `<span class="pill ok" title="${esc(n.etiqueta.arquivo||'')} · ${esc(n.etiqueta.por||'')}">${esc(ev.tipo==='correios'?'SEDEX':'Transp.')} ✔${c.length?' · '+c.length+' cód.':''}</span> <button class="btn sec sm" data-veretq="${esc(n.chave)}">Ver</button> <button class="btn sec sm" data-anexar="${esc(n.chave)}" title="Trocar o PDF">Trocar</button>`;}
+  return `<span class="pill warn">${esc(ev.tipo==='correios'?'SEDEX':'Transp.')} · falta etiqueta</span> <button class="btn sm" data-anexar="${esc(n.chave)}">Anexar PDF</button>`;}
+let PDFJS=null;
+async function carregarPdfJs(){if(PDFJS)return PDFJS;await new Promise((ok,er)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=ok;s.onerror=()=>er(new Error('não consegui carregar o leitor de PDF'));document.head.appendChild(s);});
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';PDFJS=window.pdfjsLib;return PDFJS;}
+async function textoDoPdf(buf){const lib=await carregarPdfJs();const doc=await lib.getDocument({data:buf.slice(0)}).promise;let t='';for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i);const c=await pg.getTextContent();t+=c.items.map(x=>x.str).join(' ')+'\n';}return {texto:t,paginas:doc.numPages};}
+function b64DeBuf(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
+let ETQ_ALVO=null;
+function escolherEtiqueta(ch){ETQ_ALVO=ch;$('#etqFile').value='';$('#etqFile').click();}
+$('#etqFile').addEventListener('change',e=>{const f=e.target.files[0];if(f&&ETQ_ALVO)anexarEtiqueta(ETQ_ALVO,f);e.target.value='';});
+async function anexarEtiqueta(ch,file){
+  const n=await DB.getNota(ch);if(!n)return toast('NF não encontrada.','erro');const ev=envioDe(n);
+  if(!/pdf$/i.test(file.type)&&!/\.pdf$/i.test(file.name))return toast('Anexe o arquivo PDF da etiqueta.','erro');
+  if(file.size>700*1024)return toast(`PDF grande demais (${Math.round(file.size/1024)} KB). O limite é 700 KB — gere a etiqueta sem imagens extras ou em PDF compactado.`,'erro');
+  const buf=await file.arrayBuffer();let codigos=[],paginas=0,aviso='';
+  try{const r=await textoDoPdf(buf);paginas=r.paginas;codigos=extrairRastreios(r.texto);}catch(e){aviso='Não consegui ler o texto do PDF ('+e.message+').';}
+  const vols=+n.volumes||1;
+  if(ev.tipo==='correios'&&codigos.length!==vols){
+    const r=await dialogo({titulo:`Etiqueta da NF ${n.numero}: confira os códigos`,html:`<p>${aviso?esc(aviso)+' ':''}${codigos.length?`Encontrei <b>${codigos.length}</b> código(s) de rastreio no PDF`:'Não encontrei códigos de rastreio no PDF (pode ser uma imagem)'}, mas a NF tem <b>${vols}</b> volume(s).</p>
+      <p class="small muted">Corrija abaixo: um código por linha (pode bipar a etiqueta aqui). Deixe vazio para salvar só o PDF, sem conferência de código na expedição.</p>
+      <textarea id="dlgCods" rows="${Math.max(3,vols)}" style="width:100%;font-family:monospace;text-transform:uppercase">${codigos.join('\n')}</textarea>`,
+      botoes:[{txt:'Cancelar',val:null,cls:'sec'},{txt:'Salvar',val:bg=>{const l=bg.querySelector('#dlgCods').value.toUpperCase().split(/[\s,;]+/).filter(Boolean);const inv=l.filter(c=>!rastreioValido(c));if(inv.length){toast('Código inválido: '+inv[0],'erro');return undefined;}return {l:[...new Set(l)]};}}]});
+    if(!r)return;codigos=r.l;}
+  const resumo={arquivo:file.name.slice(0,120),bytes:file.size,paginas,codigos,tipo:ev.tipo,por:USER.nome,porUid:USER.uid,ms:Date.now()};
+  try{await DB.salvarEtiqueta(ch,resumo,b64DeBuf(buf));toast(`Etiqueta anexada à NF ${n.numero}${codigos.length?` · ${codigos.length} código(s): ${codigos.join(', ')}`:''}.`,'ok');
+    $$(`button[data-anexar="${ch}"]`).forEach(b=>{const row=b.closest('.row');if(row&&row.closest('#importResult'))row.innerHTML=`<span><b>NF ${esc(n.numero)}</b> · etiqueta anexada ✔${codigos.length?' · '+esc(codigos.join(', ')):''}</span>`;});
+    if(!$('#tab-base').classList.contains('hidden'))listarBase();}
+  catch(e){toast('Não foi possível salvar a etiqueta: '+traduzErro(e),'erro');}}
+async function verEtiqueta(ch){try{const b64=await DB.getEtiquetaPdf(ch);if(!b64)return toast('PDF não encontrado.','erro');const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  const url=URL.createObjectURL(new Blob([u],{type:'application/pdf'}));window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){toast('Erro ao abrir: '+traduzErro(e),'erro');}}
+
+/* ================= PERFIS NA TELA ================= */
+function aplicarPerfilUI(){const fat=MODO_FIREBASE&&USER&&USER.perfil==='faturamento';
+  ['#tabEmbBtn','#tabExpBtn','#tabHistBtn'].forEach(s=>$(s).classList.toggle('hidden',fat));
+  if(fat&&!$('#tab-base').classList.contains('hidden'))return;if(fat)$('nav.tabs button[data-tab=base]').click();}
+
+/* ================= PAINEL TV ================= */
+let PN={desliga:null,vistos:null,som:false,ctx:null,dados:[],relogio:null};
+$('#btnPainel').onclick=()=>window.open(location.pathname+'?painel=1','_blank');
+function abrirPainel(){$('#painel').classList.remove('hidden');document.title='Painel · Romaneio NF-e';
+  const desde=Date.now()-7*864e5;
+  const on=d=>{PN.dados=d;renderPainel();$('#pnAtual').textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR');};
+  PN.desliga=DB.observarNotas(desde,on,e=>{$('#pnAtual').textContent='Sem conexão: '+traduzErro(e);});
+  PN.relogio=setInterval(()=>{$('#pnRelogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});renderPainel(true);},30000);
+  $('#pnRelogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+$('#pnSair').onclick=()=>{if(PN.desliga)PN.desliga();clearInterval(PN.relogio);$('#painel').classList.add('hidden');history.replaceState(null,'',location.pathname);};
+$('#pnTela').onclick=()=>{const el=document.documentElement;document.fullscreenElement?document.exitFullscreen():el.requestFullscreen&&el.requestFullscreen();};
+$('#pnSom').onclick=()=>{PN.som=!PN.som;if(PN.som){try{PN.ctx=PN.ctx||new (window.AudioContext||window.webkitAudioContext)();PN.ctx.resume();beepPainel();}catch(e){}}$('#pnSom').textContent=PN.som?'🔔 Som ligado':'🔕 Ativar som';};
+function beepPainel(){if(!PN.som||!PN.ctx)return;const c=PN.ctx;[0,0.25].forEach((t,i)=>{const o=c.createOscillator(),g=c.createGain();o.frequency.value=i?1180:880;g.gain.setValueAtTime(0.0001,c.currentTime+t);g.gain.exponentialRampToValueAtTime(0.4,c.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+t+0.22);o.connect(g).connect(c.destination);o.start(c.currentTime+t);o.stop(c.currentTime+t+0.25);});}
+function minDesde(ms){return Math.max(0,Math.round((Date.now()-ms)/60000));}
+function fmtMin(m){if(m==null||isNaN(m))return '—';return m<60?m+' min':Math.floor(m/60)+'h'+String(m%60).padStart(2,'0');}
+function inicioHoje(){const d=new Date();d.setHours(0,0,0,0);return d.getTime();}
+const PN_CONF_VELHA=90; // min: conferência aberta há mais tempo que isso é considerada esquecida
+function etapaNota(n){if(n.romaneioId)return 4;if(n.conferida)return 3;if(n.emConferencia&&minDesde(n.emConferencia.ms)<PN_CONF_VELHA)return 2;return 1;}
+function renderPainel(soTempo){const hoje=inicioHoje(),A=PN.dados||[];
+  const novas=[];if(PN.vistos){A.forEach(n=>{if(!PN.vistos.has(n.chave))novas.push(n.chave);});}PN.vistos=new Set(A.map(n=>n.chave));
+  if(novas.length&&!soTempo)beepPainel();
+  if(novas.length)PN.novas=new Map([...(PN.novas||new Map()),...novas.map(c=>[c,Date.now()])]);
+  const col={1:[],2:[],3:[],4:[]};A.forEach(n=>{const e=etapaNota(n);if(e===4&&(n.expedidoMs||0)<hoje)return;col[e].push(n);});
+  const prio=n=>envioDe(n).tipo==='correios'?0:1;
+  col[1].sort((a,b)=>prio(a)-prio(b)||(a.importadoMs||0)-(b.importadoMs||0));col[2].sort((a,b)=>a.emConferencia.ms-b.emConferencia.ms);
+  col[3].sort((a,b)=>prio(a)-prio(b)||(a.conferenciaMs||0)-(b.conferenciaMs||0));col[4].sort((a,b)=>(b.expedidoMs||0)-(a.expedidoMs||0));
+  const card=(n,e)=>{const ev=envioDe(n),semEtq=ev.exige&&!n.etiqueta,nova=PN.novas&&PN.novas.has(n.chave)&&Date.now()-PN.novas.get(n.chave)<15000;
+    const t=e===1?`há ${fmtMin(minDesde(n.importadoMs||Date.now()))}`:e===2?`${esc(n.emConferencia.nome||'')} · ${fmtMin(minDesde(n.emConferencia.ms))}`:e===3?`conferida há ${fmtMin(minDesde(n.conferenciaMs||Date.now()))}`:`Rom. ${pad(n.romaneioNumero)} · ${new Date(n.expedidoMs).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+    const tags=[ev.tipo==='correios'?'<span class="tag y">SEDEX</span>':ev.tipo==='transportadora'?`<span class="tag">${esc(transpNome(n.transportadora).split(' ')[0])}</span>`:'',semEtq&&e<4?'<span class="tag r">SEM ETIQUETA</span>':'',`<span class="tag">${+n.volumes||0} vol.</span>`,e===1&&minDesde(n.importadoMs||Date.now())>240?'<span class="tag r">PARADA</span>':''].join('');
+    return `<div class="pn-card ${ev.tipo==='correios'?'sedex':''} ${semEtq&&e<4?'pend':''} ${nova?'novo':''}"><div class="l1"><span>NF ${esc(n.numero)}</span><span style="font-weight:500;font-size:15px">${t}</span></div><div class="l2">${esc(n.cliente.nome)} · ${esc(cidadeUf(n.endereco))}</div><div class="l3">${tags}</div></div>`;};
+  const MAX=7;[1,2,3,4].forEach(k=>{const l=col[k];$('#pnN'+k).textContent=l.length;$('#pnL'+k).innerHTML=l.slice(0,MAX).map(n=>card(n,k)).join('')+(l.length>MAX?`<div class="pn-mais">+ ${l.length-MAX} NF(s)</div>`:'')||'<div class="pn-mais">—</div>';});
+  const fatH=A.filter(n=>(n.importadoMs||0)>=hoje),confH=A.filter(n=>(n.conferenciaMs||0)>=hoje),expH=A.filter(n=>(n.expedidoMs||0)>=hoje);
+  $('#pnKFat').textContent=fatH.length;$('#pnKConf').textContent=confH.length;$('#pnKExp').textContent=expH.length;
+  const tot=expH.filter(n=>n.importadoMs).map(n=>(n.expedidoMs-n.importadoMs)/60000);$('#pnKMed').textContent=tot.length?Math.round(tot.reduce((a,b)=>a+b,0)/tot.length):'—';
+  const al=[];const semE=A.filter(n=>etapaNota(n)<4&&envioDe(n).exige&&!n.etiqueta);if(semE.length)al.push(`${semE.length} NF(s) sem etiqueta de envio: ${semE.slice(0,6).map(n=>n.numero).join(', ')}`);
+  const par=col[1].filter(n=>minDesde(n.importadoMs||Date.now())>240);if(par.length)al.push(`${par.length} NF(s) faturadas há mais de 4h sem conferência`);
+  const esq=A.filter(n=>n.emConferencia&&!n.conferida&&minDesde(n.emConferencia.ms)>=PN_CONF_VELHA);if(esq.length)al.push(`${esq.length} conferência(s) aberta(s) e esquecida(s): ${esq.map(n=>n.numero).join(', ')}`);
+  $('#pnAlertas').innerHTML=al.map(x=>`<span>⚠ ${esc(x)}</span>`).join('');
+  const hc=PARAM_EMB.horaColeta;const el=$('#pnColeta');
+  if(hc&&/^\d{2}:\d{2}$/.test(hc)){const [h,m]=hc.split(':').map(Number);const lim=new Date();lim.setHours(h,m,0,0);const falta=Math.round((lim-Date.now())/60000);
+    const pend=col[1].length+col[2].length+col[3].length;
+    el.textContent=falta>0?`Coleta ${hc} · faltam ${fmtMin(falta)} · ${pend} NF(s) abertas`:`Coleta ${hc} encerrada`;el.style.background=falta>0&&falta<=60&&pend?'#7a1f22':falta>0?'#1f5a34':'#33415c';}else el.textContent='';}
+
+/* ================= RELATÓRIO: TEMPOS DO PROCESSO ================= */
+let RELT=null;
+async function gerarRelTempos(){const de=$('#rDe').value,ate=$('#rAte').value;if(!de||!ate)return toast('Informe o período.','erro');
+  const area=$('#relArea');area.innerHTML='<div class="card muted">Carregando…</div>';
+  try{const [a,b]=rangeMs(de,ate);const [notas,confs]=await Promise.all([DB.listarNotasPeriodo(a,b),DB.listarConferencias(a,b+7*864e5)]);
+    const ini={};confs.forEach(c=>{if(!ini[c.chave]||c.fimMs>ini[c.chave].fimMs)ini[c.chave]=c;});
+    const L=notas.map(n=>{const c=ini[n.chave];const fat=n.importadoMs||null,ci=c?c.inicioMs:null,cf=n.conferenciaMs||(c?c.fimMs:null),ex=n.expedidoMs||null;const mn=(x,y)=>x&&y?Math.max(0,Math.round((y-x)/60000)):null;
+      return {n,fat,ci,cf,ex,espera:mn(fat,ci),conf:mn(ci,cf),aguardExp:mn(cf,ex),total:mn(fat,ex),op:c?c.operador.nome:''};}).sort((x,y)=>(x.fat||0)-(y.fat||0));
+    RELT={de,ate,L};area.innerHTML=htmlRelTempos(false);}
+  catch(e){RELT=null;area.innerHTML=`<div class="card feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}}
+function mediaDe(a){a=a.filter(x=>x!=null);return a.length?Math.round(a.reduce((s,x)=>s+x,0)/a.length):null;}
+function graficoTempos(L){const dias={};L.forEach(r=>{if(!r.fat)return;const k=isoHoje(new Date(r.fat));(dias[k]=dias[k]||[]).push(r);});const ks=Object.keys(dias).sort();if(!ks.length)return '';
+  const S=[['espera','Faturada → início conferência','#8aa4c8'],['conf','Conferência','#2f6fd6'],['aguardExp','Conferida → expedida','#e0a100']];
+  const val=ks.map(k=>S.map(([f])=>mediaDe(dias[k].map(r=>r[f]))||0));const mx=Math.max(10,...val.map(v=>v.reduce((a,b)=>a+b,0)));
+  const W=Math.max(320,ks.length*60+60),H=220,bw=34;let g='';
+  ks.forEach((k,i)=>{let y=H-30;val[i].forEach((v,j)=>{const h=v/mx*(H-60);if(h>0)g+=`<rect x="${50+i*60}" y="${y-h}" width="${bw}" height="${h}" fill="${S[j][2]}"><title>${S[j][1]}: ${v} min</title></rect>`;y-=h;});
+    const tot=val[i].reduce((a,b)=>a+b,0);g+=`<text x="${50+i*60+bw/2}" y="${y-4}" font-size="11" text-anchor="middle">${tot}</text><text x="${50+i*60+bw/2}" y="${H-14}" font-size="11" text-anchor="middle">${k.slice(8,10)}/${k.slice(5,7)}</text>`;});
+  return `<svg class="chart-bars" viewBox="0 0 ${W} ${H}" style="max-width:${W}px"><text x="4" y="14" font-size="11">minutos (média por NF)</text><line x1="44" y1="${H-30}" x2="${W}" y2="${H-30}" stroke="#999"/>${g}</svg>
+    <div class="row small">${S.map(s=>`<span><span style="display:inline-block;width:12px;height:12px;background:${s[2]};vertical-align:middle"></span> ${s[1]}</span>`).join(' ')}</div>`;}
+function htmlRelTempos(print){const R=RELT;if(!R)return '';const L=R.L;const hh=ms=>ms?new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const med=f=>fmtMin(mediaDe(L.map(r=>r[f])));
+  return `<div class="card"><h2 style="margin-top:0">Tempos do processo · ${fmtData(R.de)} a ${fmtData(R.ate)}</h2>
+    <div class="row" style="gap:18px"><div><div class="small muted">NFs faturadas</div><b style="font-size:22px">${L.length}</b></div><div><div class="small muted">Espera até conferir</div><b style="font-size:22px">${med('espera')}</b></div><div><div class="small muted">Conferência</div><b style="font-size:22px">${med('conf')}</b></div><div><div class="small muted">Conferida → expedida</div><b style="font-size:22px">${med('aguardExp')}</b></div><div><div class="small muted">Total faturada → expedida</div><b style="font-size:22px">${med('total')}</b></div></div>
+    ${print?'':graficoTempos(L)}
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>NF</th><th>Cliente</th><th>Envio</th><th>Faturada</th><th>Início conf.</th><th>Fim conf.</th><th>Expedida</th><th class="num">Espera</th><th class="num">Conferência</th><th class="num">Aguard. exp.</th><th class="num">Total</th><th>Operador</th></tr></thead><tbody>
+    ${L.map(r=>`<tr><td><b>${esc(r.n.numero)}</b></td><td>${esc(r.n.cliente.nome)}</td><td>${esc(envioDe(r.n).tipo==='correios'?'SEDEX':transpNome(r.n.transportadora))}</td><td>${hh(r.fat)}</td><td>${hh(r.ci)}</td><td>${hh(r.cf)}</td><td>${hh(r.ex)}</td><td class="num">${fmtMin(r.espera)}</td><td class="num">${fmtMin(r.conf)}</td><td class="num">${fmtMin(r.aguardExp)}</td><td class="num"><b>${fmtMin(r.total)}</b></td><td>${esc(r.op)}</td></tr>`).join('')||'<tr><td colspan="12" class="muted">Nenhuma NF faturada no período.</td></tr>'}</tbody></table></div></div>`;}
+async function csvTempos(){if(!RELT)await gerarRelTempos();if(!RELT)return;const iso=ms=>ms?fmtDataHora(ms):'';
+  csvDownload(`tempos_processo_${RELT.de}_a_${RELT.ate}.csv`,['NF','Serie','Cliente','Envio','Faturada','Inicio conferencia','Fim conferencia','Expedida','Espera (min)','Conferencia (min)','Aguardando expedicao (min)','Total (min)','Operador','Chave'],
+    RELT.L.map(r=>[r.n.numero,r.n.serie,r.n.cliente.nome,envioDe(r.n).tipo==='correios'?'SEDEX':transpNome(r.n.transportadora),iso(r.fat),iso(r.ci),iso(r.cf),iso(r.ex),r.espera??'',r.conf??'',r.aguardExp??'',r.total??'',r.op,"'"+r.n.chave]));}
+
 /* ================= CONFIGURAÇÕES: parâmetros e produtos ================= */
-function renderCfgEmb(){if(!isGestor())return;$('#cfgLimMult').value=PARAM_EMB.limiteMultiplos;$('#cfgDiasVal').value=PARAM_EMB.diasValidade;contarProdutos();}
+function renderCfgEmb(){if(!isGestor())return;$('#cfgLimMult').value=PARAM_EMB.limiteMultiplos;$('#cfgDiasVal').value=PARAM_EMB.diasValidade;$('#cfgColeta').value=PARAM_EMB.horaColeta||'';contarProdutos();}
 async function contarProdutos(){try{const n=await DB.contarProdutos();$('#prodInfo').textContent=`${n} produto(s) com código de barras cadastrado.`;}catch(e){$('#prodInfo').textContent='';}}
 $('#btnParamEmb').onclick=async()=>{if(!isGestor())return;const lim=Math.floor(+$('#cfgLimMult').value),dias=Math.floor(+$('#cfgDiasVal').value);
   if(!(lim>=1&&lim<=1000))return toast('Limite de múltiplos entre 1 e 1000.','erro');if(!(dias>=0&&dias<=3650))return toast('Dias de validade entre 0 e 3650.','erro');
-  try{await DB.salvarParamEmb({limiteMultiplos:lim,diasValidade:dias});PARAM_EMB={limiteMultiplos:lim,diasValidade:dias};toast('Parâmetros salvos.','ok');}catch(e){toast('Erro: '+traduzErro(e),'erro');}};
+  const col=$('#cfgColeta').value||'';try{await DB.salvarParamEmb({limiteMultiplos:lim,diasValidade:dias,horaColeta:col});PARAM_EMB={limiteMultiplos:lim,diasValidade:dias,horaColeta:col};toast('Parâmetros salvos.','ok');}catch(e){toast('Erro: '+traduzErro(e),'erro');}};
 function parseProdutos(txt){const vistos=new Set();
   return txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map((l,i)=>{let p=l.split(/\t|;/);if(p.length<2)p=l.split(',');p=p.map(x=>x.trim());
     if(i===0&&!p.some(x=>gtinValido(x))&&/c[oó]d|ean|gtin/i.test(l))return null;
@@ -1504,7 +1692,7 @@ async function csvEmb(){if(!RELEMB)await gerarRelEmb();if(!RELEMB)return;const R
     R.confs.map(c=>[c.numero,c.serie,c.cliente?.nome,c.operador?.nome,fmtDataHora(c.inicioMs),fmtDataHora(c.fimMs),fmtDur(c.duracaoS),c.unidades,c.recontagens,(c.recontagens===0&&!(c.ocorrencias||[]).some(o=>o.tipo==='lote_divergente'))?'sim':'nao',c.volumesEtiq||c.volumes||'',c.reconferencia?'sim':'nao',"'"+c.chave]));
   if(R.ocs.length)setTimeout(()=>csvDownload(`embalagem_ocorrencias_${R.de}_a_${R.ate}.csv`,['Data/hora','NF','Operador','Tipo','Produto','EAN','Detalhe'],
     [...R.ocs].sort((a,b)=>a.ms-b.ms).map(o=>{const p=produtoDaOcorrencia(o,R.prods);return [fmtDataHora(o.ms),o.numero,o.operador?.nome,TIPO_OCOR[o.tipo]||o.tipo,ERR_TIPOS.includes(o.tipo)||o.tipo==='sem_leitura'?p.nome:'',p.ean,o.detalhe||''];})),600);}
-function ajustarTipoRel(){const emb=tipoRel()==='emb';$('#rModWrap').classList.toggle('hidden',emb);$('#relArea').innerHTML='';REL=[];RELEMB=null;}
+function ajustarTipoRel(){const emb=tipoRel()!=='exp';$('#rModWrap').classList.toggle('hidden',emb);$('#relArea').innerHTML='';REL=[];RELEMB=null;RELT=null;}
 $('#rTipo').addEventListener('change',()=>{ajustarTipoRel();gerarRel();});
 
 $('#ver').textContent=APP_VERSAO;
