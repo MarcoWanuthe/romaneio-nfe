@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.7.1 (2026-10-13)";
+const APP_VERSAO = "1.7.2 (2026-10-13)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -1440,8 +1440,11 @@ async function anexarEtiqueta(ch,file){
   const n=await DB.getNota(ch);if(!n)return toast('NF não encontrada.','erro');const ev=envioDe(n);
   if(!/pdf$/i.test(file.type)&&!/\.pdf$/i.test(file.name))return toast('Anexe o arquivo PDF da etiqueta.','erro');
   if(file.size>700*1024)return toast(`PDF grande demais (${Math.round(file.size/1024)} KB). O limite é 700 KB — gere a etiqueta sem imagens extras ou em PDF compactado.`,'erro');
-  const buf=await file.arrayBuffer();let codigos=[],paginas=0,aviso='';
-  try{const r=await textoDoPdf(buf);paginas=r.paginas;codigos=extrairRastreios(r.texto);}catch(e){aviso='Não consegui ler o texto do PDF ('+e.message+').';}
+  const buf=await file.arrayBuffer();let codigos=[],paginas=0,aviso='',ceps=[];
+  try{const r=await textoDoPdf(buf);paginas=r.paginas;codigos=extrairRastreios(r.texto);ceps=[...new Set((r.texto.match(/\b\d{5}-?\d{3}\b/g)||[]).map(onlyDig))];}catch(e){aviso='Não consegui ler o texto do PDF ('+e.message+').';}
+  // confere se a etiqueta é deste cliente: o CEP do destinatário da NF precisa aparecer no PDF
+  const cepNF=onlyDig((n.endereco&&n.endereco.cep)||'');
+  if(cepNF&&ceps.length&&!ceps.includes(cepNF)){const ok=await dialogo({titulo:'Etiqueta de outro cliente?',html:`<p class="feedback err" style="display:block">O CEP do destinatário da <b>NF ${esc(n.numero)}</b> é <b>${esc(fmtCep(cepNF))}</b> (${esc(n.cliente.nome)} · ${esc(cidadeUf(n.endereco))}), mas ele <b>não aparece nesta etiqueta</b>${ceps.length?` (CEPs no PDF: ${esc(ceps.map(fmtCep).join(', '))})`:''}.</p><p>Confira se escolheu o PDF certo.</p>`,botoes:[{txt:'Cancelar (escolher outro PDF)',val:false,cls:'sec'},{txt:'Anexar mesmo assim',val:true,cls:'danger'}]});if(!ok)return;}
   const vols=+n.volumes||1;
   if(ev.tipo==='correios'&&codigos.length!==vols){
     const r=await dialogo({titulo:`Etiqueta da NF ${n.numero}: confira os códigos`,html:`<p>${aviso?esc(aviso)+' ':''}${codigos.length?`Encontrei <b>${codigos.length}</b> código(s) de rastreio no PDF`:'Não encontrei códigos de rastreio no PDF (pode ser uma imagem)'}, mas a NF tem <b>${vols}</b> volume(s).</p>
