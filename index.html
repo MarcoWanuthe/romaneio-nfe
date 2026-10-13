@@ -180,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.6.0 (2026-10-05)";
+const APP_VERSAO = "1.6.1 (2026-10-13)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -471,7 +471,8 @@ function parseNFe(texto,arquivo=''){
   const itens=[];const eanOf=v=>{v=onlyDig(v);return gtinValido(v)?v:'';};
   for(const det of inf.children){if(det.localName!=='det')continue;const pr=filho(det,'prod');if(!pr)continue;
     const lotes=[];for(const c of pr.children){if(c.localName==='rastro')lotes.push({nLote:tx(c,'nLote'),qLote:parseFloat(tx(c,'qLote')||0)||0,dFab:tx(c,'dFab'),dVal:tx(c,'dVal')});}
-    itens.push({n:+det.getAttribute('nItem')||itens.length+1,cProd:tx(pr,'cProd'),ean:eanOf(tx(pr,'cEAN'))||eanOf(tx(pr,'cEANTrib')),xProd:tx(pr,'xProd'),qCom:parseFloat(tx(pr,'qCom')||0)||0,uCom:tx(pr,'uCom'),lotes});}
+    const xp=tx(pr,'xProd'),gm=xp.match(/GTIN\s*[:\-]?\s*(\d{8,14})/i);
+    itens.push({n:+det.getAttribute('nItem')||itens.length+1,cProd:tx(pr,'cProd'),ean:eanOf(tx(pr,'cEAN'))||eanOf(tx(pr,'cEANTrib'))||(gm?eanOf(gm[1]):''),xProd:xp.replace(/\s*[-–]?\s*GTIN\s*[:\-]?\s*\d{8,14}\s*/i,' ').trim(),qCom:parseFloat(tx(pr,'qCom')||0)||0,uCom:tx(pr,'uCom'),lotes});}
   return {
     chave, numero:String(+txf(ide,'nNF')), serie:String(+txf(ide,'serie')||0), modelo:txf(ide,'mod'),
     dataEmissao:(txf(ide,'dhEmi')||txf(ide,'dEmi')).slice(0,10),
