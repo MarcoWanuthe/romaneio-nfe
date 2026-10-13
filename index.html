@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.7.0 (2026-10-13)";
+const APP_VERSAO = "1.7.1 (2026-10-13)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -1418,14 +1418,16 @@ $('#btnOmieTeste').onclick=async()=>{const u=$('#cfgOmieUrl').value.trim().repla
 /* ================= ENVIO: ETIQUETA DOS CORREIOS / TRANSPORTADORA ================= */
 function envioDe(n){const t=(n&&n.transportadora)||{};const nome=String(t.nome||'').toUpperCase(),doc=onlyDig(t.doc||'');
   if(/SEDEX|\bPAC\b|CORREIO/.test(nome)||doc.startsWith('34028316'))return {tipo:'correios',rotulo:'SEDEX (Correios)',exige:true};
-  if(nome.trim())return {tipo:'transportadora',rotulo:'Transportadora '+(t.nome||'').split(' ').slice(0,2).join(' '),exige:true};
+  // transportadora (ex.: Quick): o rastreio só sai depois que a carga chega lá, então a etiqueta é opcional e pode ser anexada depois
+  if(nome.trim())return {tipo:'transportadora',rotulo:'Transportadora '+(t.nome||'').split(' ').slice(0,2).join(' '),exige:false,opcional:true};
   return {tipo:'',rotulo:'',exige:false};}
 function rastreioValido(c){if(!/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(c))return false;const w=[8,6,4,2,3,5,9,7];let s=0;for(let i=0;i<8;i++)s+=(+c[2+i])*w[i];let r=11-s%11;r=r===10?0:(r===11?5:r);return r===+c[10];}
 function extrairRastreios(txt){const a=[];const re=/([A-Z]{2})\s?(\d{3})\s?(\d{3})\s?(\d{3})\s?([A-Z]{2})/g;let m;const T=String(txt||'').toUpperCase();
   while((m=re.exec(T))){const c=m[1]+m[2]+m[3]+m[4]+m[5];if(rastreioValido(c)&&!a.includes(c))a.push(c);}return a;}
-function celEtiqueta(n){const ev=envioDe(n);if(!ev.exige)return '<span class="small muted">—</span>';
+function celEtiqueta(n){const ev=envioDe(n);if(!ev.exige&&!ev.opcional)return '<span class="small muted">—</span>';
   if(n.etiqueta){const c=n.etiqueta.codigos||[];return `<span class="pill ok" title="${esc(n.etiqueta.arquivo||'')} · ${esc(n.etiqueta.por||'')}">${esc(ev.tipo==='correios'?'SEDEX':'Transp.')} ✔${c.length?' · '+c.length+' cód.':''}</span> <button class="btn sec sm" data-veretq="${esc(n.chave)}">Ver</button> <button class="btn sec sm" data-anexar="${esc(n.chave)}" title="Trocar o PDF">Trocar</button>`;}
-  return `<span class="pill warn">${esc(ev.tipo==='correios'?'SEDEX':'Transp.')} · falta etiqueta</span> <button class="btn sm" data-anexar="${esc(n.chave)}">Anexar PDF</button>`;}
+  if(!ev.exige||n.romaneioId)return `<span class="small muted">${esc(ev.tipo==='correios'?'SEDEX':'Transp.')} · ${ev.exige?'não anexada':'opcional'}</span> <button class="btn sec sm" data-anexar="${esc(n.chave)}">Anexar</button>`;
+  return `<span class="pill warn">SEDEX · falta etiqueta</span> <button class="btn sm" data-anexar="${esc(n.chave)}">Anexar PDF</button>`;}
 let PDFJS=null;
 async function carregarPdfJs(){if(PDFJS)return PDFJS;await new Promise((ok,er)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=ok;s.onerror=()=>er(new Error('não consegui carregar o leitor de PDF'));document.head.appendChild(s);});
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';PDFJS=window.pdfjsLib;return PDFJS;}
