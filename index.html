@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.7.2 (2026-10-13)";
+const APP_VERSAO = "1.8.0 (2026-10-13)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -430,6 +430,12 @@ const APP_VERSAO = "1.7.2 (2026-10-13)";
           <button class="btn" id="btnOmieSalvar">Salvar</button>
         </div>
       </div>
+      <div class="card hidden" id="zeraCard" style="border:2px solid #e5484d">
+        <h2 style="color:#c62828">Zerar a base (fim dos testes)</h2>
+        <p class="small" style="margin-top:0">Apaga <b>todas</b> as NFs, etiquetas de envio, conferências, ocorrências e romaneios, e volta a numeração para o <b>Romaneio Nº 1</b>. <b>Não apaga</b> usuários, produtos (código → EAN), modalidades nem parâmetros. Não tem como desfazer. Só o gestor principal vê esta opção.</p>
+        <div class="row" style="align-items:center"><button class="btn sec" id="btnZeraContar">Ver o que será apagado</button><span id="zeraInfo" class="small"></span></div>
+        <div class="row" style="align-items:flex-end;margin-top:8px"><label class="f">Para confirmar, digite ZERAR<input type="text" id="zeraConf" style="width:140px;text-transform:uppercase" autocomplete="off"></label><button class="btn danger" id="btnZerar">Zerar a base agora</button></div>
+      </div>
       <div class="card">
         <h2>Produtos: código interno → código de barras (EAN)</h2>
         <p class="muted small" style="margin-top:-6px">Usado quando a NF não traz o EAN. Os EANs que vierem nos XMLs importados entram aqui automaticamente. <span id="prodInfo"></span></p>
@@ -562,6 +568,9 @@ const LocalDB={
   async salvarEtiqueta(ch,resumo,pdfB64){const e=LS.get('rnfe_etq',{});e[ch]={chave:ch,pdfB64,...resumo};if(!LS.set('rnfe_etq',e))throw new Error('armazenamento cheio');const n=LS.get('rnfe_notas',{});if(n[ch]){n[ch].etiqueta=resumo;LS.set('rnfe_notas',n);}},
   async getEtiquetaPdf(ch){const e=LS.get('rnfe_etq',{})[ch];return e?e.pdfB64:null;},
   async marcarEmConferencia(ch,v){const n=LS.get('rnfe_notas',{});if(n[ch]){n[ch].emConferencia=v;LS.set('rnfe_notas',n);}},
+  async excluirNota(ch){const n=LS.get('rnfe_notas',{});delete n[ch];LS.set('rnfe_notas',n);const e=LS.get('rnfe_etq',{});delete e[ch];LS.set('rnfe_etq',e);},
+  async contarBase(){return {notas:Object.keys(LS.get('rnfe_notas',{})).length,etiquetas:Object.keys(LS.get('rnfe_etq',{})).length,conferencias:Object.keys(LS.get('rnfe_confs',{})).length,conf_ocorrencias:LS.get('rnfe_ocor',[]).length,romaneios:LS.get('rnfe_roms',[]).length,contadores:LS.get('rnfe_seq',0)?1:0};},
+  async zerarBase(){['rnfe_notas','rnfe_etq','rnfe_confs','rnfe_ocor','rnfe_roms','rnfe_seq'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});},
   async listarNotasDesde(ms){return Object.values(LS.get('rnfe_notas',{})).filter(n=>(n.importadoMs||0)>=ms);},
   async listarNotasPeriodo(a,b){return Object.values(LS.get('rnfe_notas',{})).filter(n=>(n.importadoMs||0)>=a&&(n.importadoMs||0)<=b);},
   observarNotas(ms,cb){const f=()=>cb(Object.values(LS.get('rnfe_notas',{})).filter(n=>(n.importadoMs||0)>=ms));f();const t=setInterval(f,5000);return ()=>clearInterval(t);},
@@ -615,6 +624,9 @@ const FireDB={
   async salvarEtiqueta(ch,resumo,pdfB64){const b=fdb.batch();b.set(fdb.collection('etiquetas').doc(ch),{chave:ch,pdfB64,...resumo});b.update(fdb.collection('notas').doc(ch),{etiqueta:resumo});await b.commit();},
   async getEtiquetaPdf(ch){const s=await fdb.collection('etiquetas').doc(ch).get();return s.exists?s.data().pdfB64:null;},
   async marcarEmConferencia(ch,v){await fdb.collection('notas').doc(ch).update({emConferencia:v});},
+  async excluirNota(ch){const b=fdb.batch();b.delete(fdb.collection('etiquetas').doc(ch));b.delete(fdb.collection('notas').doc(ch));await b.commit();},
+  async contarBase(){const o={};for(const c of BASE_COLS){const q=await fdb.collection(c).get();o[c]=q.size;}return o;},
+  async zerarBase(prog){for(const c of BASE_COLS){let total=0;while(true){const q=await fdb.collection(c).limit(400).get();if(q.empty)break;const b=fdb.batch();q.docs.forEach(d=>b.delete(d.ref));await b.commit();total+=q.size;prog&&prog(c,total);}}},
   async listarNotasDesde(ms){const q=await fdb.collection('notas').where('importadoMs','>=',ms).get();return q.docs.map(d=>d.data());},
   async listarNotasPeriodo(a,b){const q=await fdb.collection('notas').where('importadoMs','>=',a).where('importadoMs','<=',b).limit(3000).get();return q.docs.map(d=>d.data());},
   observarNotas(ms,cb,err){return fdb.collection('notas').where('importadoMs','>=',ms).onSnapshot(s=>cb(s.docs.map(d=>d.data())),e=>err&&err(e));},
@@ -944,15 +956,15 @@ async function listarBase(){
   const area=$('#baseList');area.innerHTML='<p class="muted">Carregando…</p>';
   try{const a=await DB.listarNotas($('#baseBusca').value);
     if(!a.length){area.innerHTML='<div class="empty">Nenhuma nota encontrada.</div>';return;}
-    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Etiqueta de envio</th><th>Embalagem</th><th>Situação</th></tr></thead><tbody>
+    area.innerHTML=`<table class="t"><thead><tr><th>NF</th><th>Emissão</th><th>Cliente</th><th>Cidade/UF</th><th>Transportadora</th><th class="num">Vol.</th><th>Etiqueta de envio</th><th>Embalagem</th><th>Situação</th>${isGestor()?'<th></th>':''}</tr></thead><tbody>
     ${a.map(n=>`<tr><td><b>${esc(n.numero)}</b> <span class="small muted">s.${esc(n.serie)}</span></td><td>${fmtData(n.dataEmissao)}</td><td>${esc(n.cliente.nome)}</td><td>${esc(cidadeUf(n.endereco))}</td><td>${esc(transpNome(n.transportadora))}</td><td class="num">${+n.volumes||0}</td>
       <td>${celEtiqueta(n)}</td>
       <td>${n.conferida?`<span class="pill ok" title="${esc(n.conferidoPor||'')} · ${n.conferenciaMs?fmtDataHora(n.conferenciaMs):''}">Conferida</span> <button class="btn sec sm" data-etq="${esc(n.chave)}">Etiquetas</button>`:(Array.isArray(n.itens)?'<span class="pill warn">Não conferida</span>':'<span class="pill">Reimportar XML</span>')}</td>
-      <td>${n.romaneioId?`<span class="pill ok">Romaneio Nº ${pad(n.romaneioNumero)}</span>`:'<span class="pill">Disponível</span>'} ${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td></tr>`).join('')}</tbody></table>
+      <td>${n.romaneioId?`<span class="pill ok">Romaneio Nº ${pad(n.romaneioNumero)}</span>`:'<span class="pill">Disponível</span>'} ${n.autorizada?'':'<span class="pill warn">sem protocolo</span>'}</td>${isGestor()?`<td><button class="btn sec sm" data-excluir="${esc(n.chave)}" title="${n.romaneioId?'Está em romaneio: cancele o romaneio no Histórico antes':'Excluir esta NF da base'}" ${n.romaneioId&&!isSuperGestor()?'disabled':''}>🗑</button></td>`:''}</tr>`).join('')}</tbody></table>
     <p class="muted small">${a.length} nota(s) exibida(s)${a.length>=300?' (as mais recentes; use a busca para encontrar outras)':''}.</p>`;
   }catch(e){area.innerHTML=`<div class="feedback err" style="display:block">Erro: ${esc(e.message)}</div>`;}
 }
-$('#baseList').addEventListener('click',e=>{const b=e.target.closest('button[data-etq]');if(b)return reimprimirEtiquetas(b.dataset.etq);const a=e.target.closest('button[data-anexar]');if(a)return escolherEtiqueta(a.dataset.anexar);const v=e.target.closest('button[data-veretq]');if(v)return verEtiqueta(v.dataset.veretq);});
+$('#baseList').addEventListener('click',e=>{const b=e.target.closest('button[data-etq]');if(b)return reimprimirEtiquetas(b.dataset.etq);const a=e.target.closest('button[data-anexar]');if(a)return escolherEtiqueta(a.dataset.anexar);const v=e.target.closest('button[data-veretq]');if(v)return verEtiqueta(v.dataset.veretq);const x=e.target.closest('button[data-excluir]');if(x)return excluirNota(x.dataset.excluir);});
 $('#btnBaseBuscar').onclick=listarBase;$('#baseBusca').addEventListener('keydown',e=>{if(e.key==='Enter')listarBase();});
 
 /* ================= PERÍODOS ================= */
@@ -1105,7 +1117,7 @@ $('#btnCsv').onclick=async()=>{if(tipoRel()==='emb')return csvEmb();if(tipoRel()
 /* ================= CONFIGURAÇÕES (GESTOR) ================= */
 $('#cfgTipo').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
 function renderCfg(){
-  renderUsuarios();renderCfgEmb();
+  renderUsuarios();renderCfgEmb();$('#zeraCard').classList.toggle('hidden',!isSuperGestor());
   if(!isGestor()){$('#cfgList').innerHTML='<div class="empty">Apenas o gestor pode editar as modalidades.</div>';return;}
   $('#cfgList').innerHTML=`<table class="t"><thead><tr><th>Nome</th><th>Comportamento</th><th>Situação</th><th></th></tr></thead><tbody>
   ${MODS.map((m,i)=>`<tr><td><input type="text" class="cfgNome" data-i="${i}" value="${esc(m.nome)}" style="width:100%;min-width:160px"></td><td class="small">${esc(TIPOS[m.tipo]||m.tipo)}</td>
@@ -1459,6 +1471,22 @@ async function anexarEtiqueta(ch,file){
   catch(e){toast('Não foi possível salvar a etiqueta: '+traduzErro(e),'erro');}}
 async function verEtiqueta(ch){try{const b64=await DB.getEtiquetaPdf(ch);if(!b64)return toast('PDF não encontrado.','erro');const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
   const url=URL.createObjectURL(new Blob([u],{type:'application/pdf'}));window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){toast('Erro ao abrir: '+traduzErro(e),'erro');}}
+
+/* ================= EXCLUIR NF / ZERAR BASE ================= */
+const BASE_COLS=['etiquetas','notas','conferencias','conf_ocorrencias','romaneios','contadores'];
+const BASE_NOMES={notas:'NFs',etiquetas:'etiquetas de envio',conferencias:'conferências',conf_ocorrencias:'ocorrências',romaneios:'romaneios',contadores:'numeração'};
+function isSuperGestor(){return !MODO_FIREBASE||String((USER&&USER.email)||'').toLowerCase()===SUPER_GESTOR;}
+async function excluirNota(ch){if(!isGestor())return;const n=await DB.getNota(ch);if(!n)return listarBase();
+  if(n.romaneioId&&!isSuperGestor())return toast('Esta NF está no romaneio Nº '+pad(n.romaneioNumero)+'. Cancele o romaneio no Histórico antes.','erro');
+  const ok=await dialogo({titulo:`Excluir a NF ${n.numero}?`,html:`<p><b>${esc(n.cliente.nome)}</b> · ${esc(cidadeUf(n.endereco))}</p><p>A NF sai da base${n.etiqueta?' junto com a etiqueta de envio anexada':''}. Para usá-la de novo, basta importar o XML outra vez.${n.romaneioId?` <b>Atenção:</b> ela está no romaneio Nº ${pad(n.romaneioNumero)}.`:''}</p>`,botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Excluir',val:true,cls:'danger'}]});
+  if(!ok)return;try{await DB.excluirNota(ch);DRAFT=DRAFT.filter(d=>d.nota.chave!==ch);salvarDraft();renderDraft();toast(`NF ${n.numero} excluída.`,'ok');listarBase();}catch(e){toast('Não foi possível excluir: '+traduzErro(e),'erro');}}
+$('#btnZeraContar').onclick=async()=>{if(!isSuperGestor())return;$('#zeraInfo').textContent='Contando…';try{const c=await DB.contarBase();$('#zeraInfo').innerHTML=Object.entries(c).filter(([k])=>k!=='contadores').map(([k,v])=>`<b>${v}</b> ${BASE_NOMES[k]}`).join(' · ');}catch(e){$('#zeraInfo').textContent='Erro: '+traduzErro(e);}};
+$('#btnZerar').onclick=async()=>{if(!isSuperGestor())return;if($('#zeraConf').value.trim().toUpperCase()!=='ZERAR')return toast('Digite ZERAR no campo para confirmar.','erro');
+  const ok=await dialogo({titulo:'Zerar a base agora?',html:'<p class="feedback err" style="display:block">Todas as NFs, etiquetas, conferências, ocorrências e romaneios serão apagados <b>para sempre</b> e a numeração volta para o Nº 1.</p>',botoes:[{txt:'Cancelar',val:false,cls:'sec'},{txt:'Sim, zerar tudo',val:true,cls:'danger'}]});if(!ok)return;
+  const b=$('#btnZerar');b.disabled=true;$('#zeraInfo').textContent='Apagando…';
+  try{await DB.zerarBase((c,t)=>{$('#zeraInfo').textContent=`Apagando ${BASE_NOMES[c]}… ${t}`;});DRAFT=[];SESS={mod:null,evento:''};salvarDraft();renderDraft();EMB=null;renderEmb();
+    $('#zeraConf').value='';$('#zeraInfo').innerHTML='<b style="color:#1b7f3b">Base zerada ✔</b> Pode começar o uso real. Próximo romaneio: Nº 1.';toast('Base zerada.','ok');}
+  catch(e){$('#zeraInfo').textContent='Parou no meio: '+traduzErro(e)+'. Clique de novo para terminar.';}finally{b.disabled=false;}};
 
 /* ================= PERFIS NA TELA ================= */
 function aplicarPerfilUI(){const fat=MODO_FIREBASE&&USER&&USER.perfil==='faturamento';
