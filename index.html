@@ -180,7 +180,7 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:xxxxxxxx"
 };
 */
-const APP_VERSAO = "1.6.1 (2026-10-13)";
+const APP_VERSAO = "1.6.2 (2026-10-13)";
 </script>
 
 <!-- ============ LOGIN ============ -->
@@ -1234,7 +1234,7 @@ async function embLinhaPara(cands,todas){
   if(todas.some(l=>normLote(l.lote)===normLote(dig))){await embErroReset('excesso',`${cands[0].xProd}, lote ${dig} já completo`,{ean:cands[0].ean,xProd:cands[0].xProd,cProd:cands[0].cProd});return null;}
   bip(false);embFlash(false);await registrarOcorrencia('lote_divergente',{detalhe:`${cands[0].xProd}: digitado ${dig}`,ean:cands[0].ean,xProd:cands[0].xProd,cProd:cands[0].cProd});
   embMsg(`<b>Lote ${esc(dig)} não confere com a NF</b> para ${esc(cands[0].xProd)}. A unidade não foi contada. Confira a embalagem e bipe de novo.`,'err');focarEmb();return null;}
-let embOcupado=false;
+let embOcupado=false,embUltLeitura={g:'',t:0},EMB_JANELA_DUPLA=500; // ms: mesma leitura repetida nesse intervalo = pistola leu 2 vezes
 async function embScan(raw){
   const cod=String(raw||'').trim();$('#embInput').value='';if(!cod||embOcupado)return;
   embOcupado=true;
@@ -1246,15 +1246,18 @@ async function embScan(raw){
       if(EMB&&EMB.nota.chave===ch){embMsg('Esta NF já está aberta. Bipe os itens.','warn');return;}
       return await embAbrir(ch);}
     if(!EMB){bip(false);return embMsg('Bipe primeiro o DANFE para abrir a NF.','err');}
-    const g=onlyDig(cod);
+    const g=onlyDig(cod);const agora=Date.now();
+    if(g===embUltLeitura.g&&agora-embUltLeitura.t<EMB_JANELA_DUPLA){embUltLeitura.t=agora;EMB.duplas=(EMB.duplas||0)+1;
+      return embMsg(`Leitura repetida ignorada (código ${esc(g)} chegou 2 vezes em menos de ${EMB_JANELA_DUPLA/1000}s — a pistola leu em dobro). Se eram 2 caixas, bipe a próxima com calma.`,'warn');}
+    embUltLeitura={g,t:agora};
     if(!gtinValido(g)){bip(false);embFlash(false);return embMsg(`Leitura “${esc(cod)}” não é um código de barras válido. Bipe de novo.`,'err');}
     const todas=EMB.linhas.filter(l=>l.ean&&gtinNorm(l.ean)===gtinNorm(g));
     if(!todas.length)return await embErroReset('produto_fora_da_nf',`EAN ${g}`,{ean:g});
     const cands=todas.filter(l=>l.lido<l.qtd);
-    if(!cands.length)return await embErroReset('excesso',`${todas[0].xProd} (NF: ${todas.reduce((a,l)=>a+l.qtd,0)})`,{ean:todas[0].ean,xProd:todas[0].xProd,cProd:todas[0].cProd});
+    if(!cands.length)return await embErroReset('excesso',`${todas[0].xProd} (NF: ${todas.reduce((a,l)=>a+l.qtd,0)}) · código lido ${g}`,{ean:todas[0].ean,xProd:todas[0].xProd,cProd:todas[0].cProd,lido:g});
     const linha=await embLinhaPara(cands,todas);if(!linha)return;
     linha.lido++;linha.modos.bipe++;EMB.atual=linha.id;bip(true);embFlash(true);renderEmb();
-    embMsg(`✔ ${esc(linha.xProd)} · ${linha.lido}/${linha.qtd}`,'ok');
+    embMsg(`✔ ${esc(linha.xProd)} · ${linha.lido}/${linha.qtd} <span class="small muted">(código ${esc(g)})</span>`,'ok');
     await embVerificarFim();
   }finally{embOcupado=false;focarEmb();}
 }
